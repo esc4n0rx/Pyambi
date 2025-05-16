@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos personalizados */
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded font-semibold text-white shadow-md transition-all duration-300;
+  }
+  
+  .btn-primary {
+    @apply bg-primary hover:bg-primary-dark;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary hover:bg-amber-600;
+  }
+  
+  .video-control {
+    @apply w-10 h-10 flex items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm hover:bg-white/30 transition;
+  }
+  
+  .slider {
+    @apply w-full h-2 rounded-lg appearance-none cursor-pointer bg-gray-300;
+  }
+  
+  .slider::-webkit-slider-thumb {
+    @apply appearance-none w-4 h-4 rounded-full bg-primary;
+  }
+  
+  .slider::-moz-range-thumb {
+    @apply w-4 h-4 rounded-full bg-primary border-none;
+  }
+  
+  .control-bar {
+    @apply absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 opacity-0 transition-opacity duration-300;
+  }
+  
+  .video-container:hover .control-bar,
+  .control-bar:focus-within {
+    @apply opacity-100;
+  }
+  
+  .video-container.ambilight-active {
+    @apply z-10;
+  }
+
+  /* Estilo para o histórico de vídeos */
+  .history-item {
+    @apply flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer;
+  }
+  
+  /* Estilo para as configurações */
+  .settings-item {
+    @apply flex flex-col gap-2 mb-6;
+  }
+  
+  .settings-label {
+    @apply text-lg font-medium;
+  }
+  
+  .settings-description {
+    @apply text-sm text-gray-500 dark:text-gray-400;
+  }
+}
+
+/* Animação de pulsação para o efeito Ambilight quando em pausa */
+@keyframes subtle-pulse {
+  0%, 100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.pulse-animation {
+  animation: subtle-pulse 2s ease-in-out infinite;
+}

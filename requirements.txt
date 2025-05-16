@@ -1,0 +1,9 @@
+
+Flask
+Flask-SocketIO
+opencv-python
+numpy
+Werkzeug
+python-socketio
+python-engineio
+simple-websocket

@@ -1,0 +1,58 @@
+/* Estilos diretamente para o efeito Ambilight */
+#video-container {
+    position: relative;
+    overflow: visible !important; /* Importante: permite que o efeito seja visível fora dos limites */
+}
+
+#ambilight-effect {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.ambilight-active {
+    overflow: visible !important;
+}
+
+/* Estilos para as zonas Ambilight */
+#ambilight-effect > div {
+    position: absolute;
+    overflow: visible !important;
+}
+
+#ambilight-effect > div > div {
+    position: absolute;
+    overflow: visible !important;
+    background-color: transparent;
+}
+
+/* Animação de pulsação */
+@keyframes subtle-pulse {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
+}
+
+.pulse-animation {
+    animation: subtle-pulse 2s ease-in-out infinite;
+}
+
+/* Definições específicas de box-shadow */
+.box-shadow-top {
+    box-shadow: 0 -15px 30px rgba(255, 0, 0, 0.7);
+}
+
+.box-shadow-right {
+    box-shadow: 15px 0 30px rgba(0, 255, 0, 0.7);
+}
+
+.box-shadow-bottom {
+    box-shadow: 0 15px 30px rgba(0, 0, 255, 0.7);
+}
+
+.box-shadow-left {
+    box-shadow: -15px 0 30px rgba(255, 255, 0, 0.7);
+}

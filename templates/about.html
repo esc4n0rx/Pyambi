@@ -1,0 +1,155 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sobre - Ambilight Video Player</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-6">
+        <header class="mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+                <h1 class="text-3xl font-bold text-primary mb-2 md:mb-0">
+                    <i class="fas fa-video"></i> Ambilight Player
+                </h1>
+                <nav class="flex space-x-4">
+                    <a href="{{ url_for('index') }}" class="font-medium hover:text-primary transition">
+                        <i class="fas fa-home"></i> Início
+                    </a>
+                    <a href="{{ url_for('settings_page') }}" class="font-medium hover:text-primary transition">
+                        <i class="fas fa-cog"></i> Configurações
+                    </a>
+                    <a href="{{ url_for('about') }}" class="font-medium text-primary transition">
+                        <i class="fas fa-info-circle"></i> Sobre
+                    </a>
+                </nav>
+            </div>
+            <p class="text-gray-600 dark:text-gray-400">Sobre o Player de Vídeo com Ambilight</p>
+        </header>
+
+        <main>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 max-w-3xl mx-auto">
+                <div class="flex flex-col items-center mb-8">
+                    <div class="text-6xl text-primary mb-4 animate-pulse-slow">
+                        <i class="fas fa-lightbulb"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold text-center">Ambilight Video Player</h2>
+                    <p class="text-gray-600 dark:text-gray-400 text-center mt-2">
+                        Experiência imersiva de visualização de vídeo
+                    </p>
+                </div>
+                
+                <section class="mb-8">
+                    <h3 class="text-xl font-bold mb-4">O que é o Efeito Ambilight?</h3>
+                    <p class="mb-4">
+                        O efeito Ambilight (Ambient Lighting) foi originalmente desenvolvido pela Philips para suas TVs. 
+                        Ele analisa o conteúdo sendo exibido na tela e projeta cores correspondentes além das bordas do display, 
+                        criando uma experiência mais imersiva e reduzindo a fadiga ocular durante visualizações prolongadas.
+                    </p>
+                    <p>
+                        Nossa implementação do Ambilight para web usa tecnologias modernas para trazer essa experiência para 
+                        qualquer vídeo em seu navegador. O sistema analisa as cores nas bordas do vídeo em tempo real, 
+                        dividindo-as em zonas configuráveis, e estende essas cores além do player de vídeo.
+                    </p>
+                </section>
+                
+                <section class="mb-8">
+                    <h3 class="text-xl font-bold mb-4">Recursos</h3>
+                    <ul class="space-y-2 list-disc pl-5">
+                        <li>Player de vídeo com suporte para formatos comuns (MP4, MKV, AVI, MOV, WEBM)</li>
+                        <li>Efeito Ambilight em tempo real com baixo impacto no desempenho</li>
+                        <li>Configurações personalizáveis para o efeito Ambilight:
+                            <ul class="ml-5 mt-1 space-y-1 list-circle">
+                                <li>Intensidade do efeito</li>
+                                <li>Número de zonas por lado</li>
+                                <li>Quantidade de desfoque</li>
+                            </ul>
+                        </li>
+                        <li>Upload de arquivos de vídeo locais</li>
+                        <li>Histórico de vídeos recentes</li>
+                        <li>Design responsivo com Tailwind CSS</li>
+                        <li>Modo tela cheia</li>
+                    </ul>
+                </section>
+                
+                <section class="mb-8">
+                    <h3 class="text-xl font-bold mb-4">Tecnologias Utilizadas</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div class="p-4 border rounded-lg text-center">
+                            <i class="fab fa-python text-2xl text-blue-500 mb-2"></i>
+                            <p class="font-medium">Python / Flask</p>
+                        </div>
+                        <div class="p-4 border rounded-lg text-center">
+                            <i class="fab fa-js text-2xl text-yellow-500 mb-2"></i>
+                            <p class="font-medium">JavaScript</p>
+                        </div>
+                        <div class="p-4 border rounded-lg text-center">
+                            <i class="fab fa-html5 text-2xl text-orange-500 mb-2"></i>
+                            <p class="font-medium">HTML5</p>
+                        </div>
+                        <div class="p-4 border rounded-lg text-center">
+                            <i class="fab fa-css3-alt text-2xl text-blue-600 mb-2"></i>
+                            <p class="font-medium">Tailwind CSS</p>
+                        </div>
+                        <div class="p-4 border rounded-lg text-center">
+                            <i class="fas fa-network-wired text-2xl text-green-500 mb-2"></i>
+                            <p class="font-medium">WebSockets</p>
+                        </div>
+                        <div class="p-4 border rounded-lg text-center">
+                            <i class="fas fa-microchip text-2xl text-red-500 mb-2"></i>
+                            <p class="font-medium">OpenCV</p>
+                        </div>
+                    </div>
+                </section>
+                
+                <section class="mb-8">
+                    <h3 class="text-xl font-bold mb-4">Como Funciona</h3>
+                    <p class="mb-4">
+                        O Ambilight Player utiliza uma arquitetura cliente-servidor para proporcionar o efeito Ambilight em tempo real:
+                    </p>
+                    <ol class="list-decimal pl-5 space-y-3">
+                        <li>
+                            <strong>Processamento de Vídeo:</strong> 
+                            O backend Python utiliza OpenCV para analisar cada frame do vídeo e extrair as cores das bordas.
+                        </li>
+                        <li>
+                            <strong>Divisão em Zonas:</strong> 
+                            As bordas são divididas em zonas configuráveis (5-20 por lado) e a cor média de cada zona é calculada.
+                        </li>
+                        <li>
+                            <strong>Transmissão em Tempo Real:</strong> 
+                            As informações de cor são enviadas para o frontend via WebSockets.
+                        </li>
+                        <li>
+                            <strong>Renderização do Efeito:</strong> 
+                            O JavaScript aplica as cores como efeitos CSS (box-shadow) em torno do player de vídeo.
+                        </li>
+                        <li>
+                            <strong>Otimizações:</strong> 
+                            O sistema inclui cache de frames e limitação de taxa para garantir desempenho suave mesmo em dispositivos menos potentes.
+                        </li>
+                    </ol>
+                </section>
+                
+                <section>
+                    <h3 class="text-xl font-bold mb-4">Uso</h3>
+                    <p class="mb-4">
+                        Para utilizar o Ambilight Player, basta fazer upload de um arquivo de vídeo suportado ou selecionar um vídeo do histórico.
+                        As configurações do efeito Ambilight podem ser ajustadas em tempo real através do painel de ajustes rápidos ou na página de configurações.
+                    </p>
+                    <p>
+                        O player é otimizado para uso em navegadores modernos como Chrome, Firefox, Safari e Edge.
+                    </p>
+                </section>
+            </div>
+        </main>
+        
+        <footer class="mt-8 text-center text-gray-500 dark:text-gray-400 text-sm">
+            <p>Ambilight Video Player &copy; 2025</p>
+        </footer>
+    </div>
+</body>
+</html>

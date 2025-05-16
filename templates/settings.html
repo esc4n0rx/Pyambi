@@ -1,0 +1,165 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurações - Ambilight Video Player</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-6">
+        <header class="mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+                <h1 class="text-3xl font-bold text-primary mb-2 md:mb-0">
+                    <i class="fas fa-video"></i> Ambilight Player
+                </h1>
+                <nav class="flex space-x-4">
+                    <a href="{{ url_for('index') }}" class="font-medium hover:text-primary transition">
+                        <i class="fas fa-home"></i> Início
+                    </a>
+                    <a href="{{ url_for('settings_page') }}" class="font-medium text-primary transition">
+                        <i class="fas fa-cog"></i> Configurações
+                    </a>
+                    <a href="{{ url_for('about') }}" class="font-medium hover:text-primary transition">
+                        <i class="fas fa-info-circle"></i> Sobre
+                    </a>
+                </nav>
+            </div>
+            <p class="text-gray-600 dark:text-gray-400">Configurações do Player de Vídeo com Ambilight</p>
+        </header>
+
+        <main>
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 max-w-3xl mx-auto">
+                <h2 class="text-2xl font-bold mb-6">
+                    <i class="fas fa-sliders-h mr-2"></i> Configurações
+                </h2>
+                
+                <form id="settings-form">
+                    <!-- Seção: Configurações do Ambilight -->
+                    <section class="mb-8">
+                        <h3 class="text-xl font-bold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+                            Efeito Ambilight
+                        </h3>
+                        
+                        <!-- Intensidade -->
+                        <div class="settings-item">
+                            <label for="intensity" class="settings-label">
+                                Intensidade do Efeito
+                            </label>
+                            <p class="settings-description">
+                                Controla o brilho das cores do efeito Ambilight.
+                            </p>
+                            <div class="flex items-center gap-4">
+                                <input 
+                                    type="range" 
+                                    id="intensity" 
+                                    name="intensity" 
+                                    class="slider flex-grow" 
+                                    min="0" 
+                                    max="100" 
+                                    value="{{ settings.intensity * 100 }}" 
+                                    step="1"
+                                >
+                                <span id="intensity-display" class="w-16 text-center">
+                                    {{ (settings.intensity * 100)|int }}%
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Zonas por lado -->
+                        <div class="settings-item">
+                            <label for="zones" class="settings-label">
+                                Zonas por Lado
+                            </label>
+                            <p class="settings-description">
+                                Define o número de zonas de cor em cada lado do vídeo. Mais zonas significa maior precisão, mas pode reduzir o desempenho.
+                            </p>
+                            <div class="flex items-center gap-4">
+                                <select 
+                                    id="zones" 
+                                    name="zones" 
+                                    class="p-2 rounded bg-gray-100 dark:bg-gray-700"
+                                >
+                                    <option value="5" {% if settings.zones_per_side == 5 %}selected{% endif %}>5 zonas</option>
+                                    <option value="10" {% if settings.zones_per_side == 10 %}selected{% endif %}>10 zonas</option>
+                                    <option value="15" {% if settings.zones_per_side == 15 %}selected{% endif %}>15 zonas</option>
+                                    <option value="20" {% if settings.zones_per_side == 20 %}selected{% endif %}>20 zonas</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Desfoque -->
+                        <div class="settings-item">
+                            <label for="blur" class="settings-label">
+                                Quantidade de Desfoque
+                            </label>
+                            <p class="settings-description">
+                                Controla o quanto o efeito Ambilight se espalha para além da borda do vídeo.
+                            </p>
+                            <div class="flex items-center gap-4">
+                                <input 
+                                    type="range" 
+                                    id="blur" 
+                                    name="blur" 
+                                    class="slider flex-grow" 
+                                    min="5" 
+                                    max="50" 
+                                    value="{{ settings.blur_amount }}" 
+                                    step="1"
+                                >
+                                <span id="blur-display" class="w-16 text-center">
+                                    {{ settings.blur_amount }}px
+                                </span>
+                            </div>
+                        </div>
+                    </section>
+                    
+                    <!-- Seção: Configurações do Player -->
+                    <section class="mb-8">
+                        <h3 class="text-xl font-bold mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+                            Player de Vídeo
+                        </h3>
+                        
+                        <!-- Autoplay -->
+                        <div class="settings-item">
+                            <div class="flex items-center gap-3">
+                                <input 
+                                    type="checkbox" 
+                                    id="autoplay" 
+                                    name="autoplay"
+                                    class="w-5 h-5 rounded"
+                                    {% if settings.autoplay %}checked{% endif %}
+                                >
+                                <label for="autoplay" class="settings-label">
+                                    Reprodução Automática
+                                </label>
+                            </div>
+                            <p class="settings-description ml-8">
+                                Inicia automaticamente a reprodução quando um vídeo é carregado.
+                            </p>
+                        </div>
+                    </section>
+                    
+                    <!-- Botões de controle -->
+                    <div class="flex justify-end gap-3 mt-8">
+                        <button type="button" id="reset-settings" class="btn btn-secondary">
+                            Restaurar Padrões
+                        </button>
+                        <button type="submit" id="save-settings" class="btn btn-primary">
+                            Salvar Configurações
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Notificações -->
+    <div id="notifications" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+</body>
+</html>
