@@ -3,16 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ambilight Player</title>
+    <title>Ambilight Player - Versão Corrigida</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/player.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <!-- Incluir o CSS corrigido para o Ambilight -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ambilight-fix.css') }}">
     <style>
         /* Estilos críticos inline para garantir que funcionem */
         #video-container {
             position: relative !important;
             overflow: visible !important;
             z-index: 10;
+            background-color: #000;
         }
         
         #ambilight-effect {
@@ -24,17 +27,18 @@
             z-index: 0 !important;
             pointer-events: none !important;
             overflow: visible !important;
+            display: block !important;
         }
         
         /* Contêineres das zonas Ambilight */
         .ambilight-container {
-            position: absolute;
+            position: absolute !important;
             overflow: visible !important;
         }
         
         /* Zonas Ambilight */
         .ambilight-zone {
-            position: absolute;
+            position: absolute !important;
             overflow: visible !important;
             background-color: transparent !important;
             z-index: 0 !important;
@@ -49,19 +53,50 @@
         .pulse-animation {
             animation: subtle-pulse 2s ease-in-out infinite;
         }
+        
+        /* Estilo para debug */
+        .debug-info {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            z-index: 9999;
+            max-width: 400px;
+            max-height: 300px;
+            overflow: auto;
+        }
+        
+        /* Botão para teste do Ambilight */
+        #test-ambilight-btn {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(99, 102, 241, 0.8);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 9999;
+        }
     </style>
 </head>
 <body class="bg-black min-h-screen flex items-center justify-center">
     <div class="player-container">
         <!-- Container do vídeo com efeito Ambilight -->
-        <div id="video-container" class="video-container relative rounded-lg overflow-visible">
+        <div id="video-container" class="video-container relative rounded-lg">
             <!-- O efeito Ambilight será aplicado a este div -->
-            <div id="ambilight-effect" class="absolute inset-0 z-0 rounded-lg"></div>
+            <div id="ambilight-effect" class="rounded-lg"></div>
             
             <!-- Player de vídeo -->
             <video 
                 id="video-player" 
-                class="w-full h-full object-contain z-10 rounded-lg"
+                class="w-full h-full object-contain rounded-lg"
                 playsinline
                 data-path="{{ video_path }}"
             >
@@ -133,6 +168,11 @@
                             <i class="fas fa-lightbulb"></i>
                         </button>
                         
+                        <!-- Debug Mode -->
+                        <button id="debug-mode-btn" class="video-control" title="Modo de Debug">
+                            <i class="fas fa-bug"></i>
+                        </button>
+                        
                         <!-- Configurações -->
                         <button id="settings-btn" class="video-control" title="Configurações">
                             <i class="fas fa-sliders-h"></i>
@@ -152,65 +192,74 @@
             </div>
         </div>
         
-        <!-- Painel flutuante de configurações -->
-        <!-- <div id="settings-panel" class="hidden absolute right-0 top-0 bg-gray-900/90 p-4 rounded-lg shadow-lg backdrop-blur-md text-white z-40 w-64 transform translate-x-full transition-transform duration-300">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold">Configurações</h3>
-                <button id="close-settings" class="text-gray-400 hover:text-white">
-                    <i class="fas fa-times"></i>
+        <!-- Painel de controle Ambilight -->
+        <div id="ambilight-panel" class="bg-gray-900/90 p-4 mt-4 rounded-lg text-white">
+            <h3 class="text-lg font-bold mb-4">Configurações do Ambilight</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Intensidade -->
+                <div>
+                    <label for="intensity-slider" class="block mb-2 text-sm">
+                        Intensidade: <span id="intensity-value">100</span>%
+                    </label>
+                    <input 
+                        type="range" 
+                        id="intensity-slider" 
+                        class="slider" 
+                        min="0" 
+                        max="100" 
+                        value="100" 
+                        step="1"
+                    >
+                </div>
+                
+                <!-- Zonas por lado -->
+                <div>
+                    <label for="zones-select" class="block mb-2 text-sm">Zonas por lado:</label>
+                    <select id="zones-select" class="w-full p-2 bg-gray-800 rounded text-sm">
+                        <option value="5">5 zonas</option>
+                        <option value="10" selected>10 zonas</option>
+                        <option value="15">15 zonas</option>
+                        <option value="20">20 zonas</option>
+                    </select>
+                </div>
+                
+                <!-- Desfoque -->
+                <div>
+                    <label for="blur-slider" class="block mb-2 text-sm">
+                        Desfoque: <span id="blur-value">20</span>px
+                    </label>
+                    <input 
+                        type="range" 
+                        id="blur-slider" 
+                        class="slider" 
+                        min="5" 
+                        max="50" 
+                        value="20" 
+                        step="1"
+                    >
+                </div>
+            </div>
+            
+            <div class="flex justify-end mt-4">
+                <button id="test-effect-btn" class="btn bg-yellow-500 hover:bg-yellow-600 mr-2 text-sm py-2 px-3 rounded">
+                    Testar Efeito
+                </button>
+                <button id="apply-settings" class="btn bg-primary hover:bg-blue-700 text-sm py-2 px-3 rounded">
+                    Aplicar
                 </button>
             </div>
-        
-             <div class="mb-4">
-                <label for="intensity-slider" class="block mb-2 text-sm">
-                    Intensidade: <span id="intensity-value">100</span>%
-                </label>
-                <input 
-                    type="range" 
-                    id="intensity-slider" 
-                    class="slider" 
-                    min="0" 
-                    max="100" 
-                    value="100" 
-                    step="1"
-                >
-            </div> -->
-            
-            <!-- Zonas por lado
-            <div class="mb-4">
-                <label for="zones-select" class="block mb-2 text-sm">Zonas por lado:</label>
-                <select id="zones-select" class="w-full p-2 bg-gray-800 rounded text-sm">
-                    <option value="5">5 zonas</option>
-                    <option value="10" selected>10 zonas</option>
-                    <option value="15">15 zonas</option>
-                    <option value="20">20 zonas</option>
-                </select>
-            </div>
-            
-            Desfoque -->
-            <!-- <div class="mb-4">
-                <label for="blur-slider" class="block mb-2 text-sm">
-                    Desfoque: <span id="blur-value">15</span>px
-                </label>
-                <input 
-                    type="range" 
-                    id="blur-slider" 
-                    class="slider" 
-                    min="5" 
-                    max="50" 
-                    value="15" 
-                    step="1"
-                >
-            </div>
-            
-            <button id="apply-settings" class="btn btn-primary w-full text-sm py-2">
-                Aplicar
-            </button> -->
-
+        </div>
     </div>
     
-    <!-- Debug info (invisível) -->
-    <div id="debug-info" style="display: none; position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px; border-radius: 3px; font-size: 10px;"></div>
+    <!-- Debug info -->
+    <div id="debug-info" class="debug-info" style="display: none;">
+        <h4 class="font-bold mb-1">Debug Ambilight</h4>
+        <div id="debug-content">Carregando...</div>
+    </div>
+    
+    <!-- Botão de teste -->
+    <button id="test-ambilight-btn" style="display: none;">Testar Ambilight</button>
     
     <!-- Notificações -->
     <div id="notifications" class="fixed top-4 right-4 z-50 space-y-2"></div>
@@ -218,45 +267,174 @@
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='js/player.js') }}"></script>
+    <!-- Usar a versão corrigida do JavaScript para o Ambilight -->
     <script src="{{ url_for('static', filename='js/ambilight.js') }}"></script>
     <script src="{{ url_for('static', filename='js/websocket.js') }}"></script>
-    
-    <!-- Script para mostrar debug info -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Mostrar info de debug com duplo clique em qualquer lugar
-        document.addEventListener('dblclick', function() {
-            const debugInfo = document.getElementById('debug-info');
-            if (debugInfo) {
-                const videoPlayer = document.getElementById('video-player');
+    <script src="{{ url_for('static', filename='js/ambilight-websocket-bridge.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ambilight-panel-controls.js') }}"></script>
+
+
+    <!-- <script>
+        // Definição temporária para garantir que a função esteja disponível
+        window.updateAmbilightColors = function(colors) {
+            console.log("Função temporária de updateAmbilightColors chamada", colors);
+            
+            // Se o ambilightAPI estiver disponível, tente usá-lo
+            if (window.ambilightAPI && typeof window.ambilightAPI.test === 'function') {
+                console.log("Usando ambilightAPI para atualizar cores");
+                // Tente aplicar as cores recebidas
+                const videoContainer = document.getElementById('video-container');
                 const ambilightEffect = document.getElementById('ambilight-effect');
                 
-                let status = 'Estado do player:\n';
-                status += `- video_path: ${videoPlayer ? videoPlayer.getAttribute('data-path') : 'não disponível'}\n`;
-                status += `- ambilight-effect: ${ambilightEffect ? (ambilightEffect.children.length + ' zonas criadas') : 'não disponível'}\n`;
+                if (videoContainer && ambilightEffect) {
+                    videoContainer.classList.add('ambilight-active');
+                    
+                    // Tente aplicar as cores diretamente se possível
+                    if (colors && colors.top && colors.top.length > 0) {
+                        console.log("Aplicando cores recebidas");
+                        // Código para aplicar cores aqui
+                    }
+                }
+            }
+        };
+        </script> -->
+            
+    <!-- Script para funções de debug -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elementos
+        const debugInfoEl = document.getElementById('debug-info');
+        const debugContentEl = document.getElementById('debug-content');
+        const debugBtn = document.getElementById('debug-mode-btn');
+        const testBtn = document.getElementById('test-ambilight-btn');
+        const testEffectBtn = document.getElementById('test-effect-btn');
+        const videoContainer = document.getElementById('video-container');
+        
+        // Variáveis
+        let debugMode = false;
+        
+        // Mostrar informações de debug
+        function updateDebugInfo() {
+            if (!debugInfoEl || !debugContentEl) return;
+            
+            const videoPlayer = document.getElementById('video-player');
+            const ambilightEffect = document.getElementById('ambilight-effect');
+            
+            let status = '';
+            
+            // Info básicas
+            status += `<p><b>Video Path:</b> ${videoPlayer ? videoPlayer.getAttribute('data-path') : 'N/A'}</p>`;
+            status += `<p><b>Ambilight Container:</b> ${ambilightEffect ? 'OK' : 'Não encontrado'}</p>`;
+            status += `<p><b>Zonas:</b> ${ambilightEffect ? ambilightEffect.children.length + ' containers' : 'N/A'}</p>`;
+            
+            // Zonas por lado
+            if (ambilightEffect && ambilightEffect.children.length > 0) {
+                const containers = Array.from(ambilightEffect.children);
+                for (const container of containers) {
+                    status += `<p><b>${container.className.split(' ')[1]}:</b> ${container.children.length} zonas</p>`;
+                    
+                    // Amostra do primeiro elemento
+                    if (container.children.length > 0) {
+                        const firstZone = container.children[0];
+                        status += `<p class="text-xs ml-2">Box-shadow: ${firstZone.style.boxShadow || 'nenhum'}</p>`;
+                    }
+                }
+            }
+            
+            // WebSocket status
+            if (window.websocketDebug) {
+                status += `<p><b>WebSocket:</b> ${window.websocketDebug.status()}</p>`;
+            }
+            
+            // API Ambilight
+            if (window.ambilightAPI) {
+                status += `<p><b>Ambilight Ativo:</b> ${window.ambilightAPI.isActive() ? 'Sim' : 'Não'}</p>`;
+            }
+            
+            // Computedstyle
+            if (ambilightEffect) {
+                const style = window.getComputedStyle(ambilightEffect);
+                status += `<p><b>CSS display:</b> ${style.display}</p>`;
+                status += `<p><b>CSS visibility:</b> ${style.visibility}</p>`;
+                status += `<p><b>CSS z-index:</b> ${style.zIndex}</p>`;
+                status += `<p><b>CSS position:</b> ${style.position}</p>`;
+                status += `<p><b>CSS overflow:</b> ${style.overflow}</p>`;
+            }
+            
+            debugContentEl.innerHTML = status;
+        }
+        
+        // Toggle modo debug
+        if (debugBtn) {
+            debugBtn.addEventListener('click', () => {
+                debugMode = !debugMode;
+                debugInfoEl.style.display = debugMode ? 'block' : 'none';
+                testBtn.style.display = debugMode ? 'block' : 'none';
                 
-                if (window.websocketDebug) {
-                    status += `- WebSocket: ${window.websocketDebug.status()}\n`;
+                // Toggle classe debug no container
+                if (videoContainer) {
+                    videoContainer.classList.toggle('debug-ambilight', debugMode);
                 }
                 
-                if (window.ambilightAPI) {
-                    status += `- Ambilight ativo: ${window.ambilightAPI.isActive()}\n`;
+                if (debugMode) {
+                    updateDebugInfo();
+                    // Atualizar a cada 2 segundos
+                    window.debugInterval = setInterval(updateDebugInfo, 2000);
+                } else {
+                    clearInterval(window.debugInterval);
                 }
-                
-                debugInfo.textContent = status;
-                debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+            });
+        }
+        
+        // Teste do Ambilight via botão fixo
+        if (testBtn) {
+            testBtn.addEventListener('click', () => {
+                if (window.ambilightAPI && typeof window.ambilightAPI.test === 'function') {
+                    window.ambilightAPI.test();
+                    showNotification('Teste do efeito Ambilight iniciado', 'info');
+                }
+            });
+        }
+        
+        // Teste do Ambilight via painel
+        if (testEffectBtn) {
+            testEffectBtn.addEventListener('click', () => {
+                if (window.ambilightAPI && typeof window.ambilightAPI.test === 'function') {
+                    window.ambilightAPI.test();
+                    showNotification('Teste do efeito Ambilight iniciado', 'info');
+                }
+            });
+        }
+        
+        // Atalho de teclado para testar: Shift+A
+        document.addEventListener('keydown', function(e) {
+            if (e.shiftKey && e.key === 'A') {
+                if (window.ambilightAPI && typeof window.ambilightAPI.test === 'function') {
+                    window.ambilightAPI.test();
+                    showNotification('Teste do efeito Ambilight ativado via atalho', 'info');
+                }
             }
         });
         
-        // Testar Ambilight com Shift+Alt+A
-        document.addEventListener('keydown', function(e) {
-            if (e.shiftKey && e.altKey && e.key === 'A') {
-                if (window.ambilightAPI && typeof window.ambilightAPI.test === 'function') {
-                    window.ambilightAPI.test();
-                    console.log('Teste do efeito Ambilight ativado');
-                }
+        // Função para mostrar notificações
+        function showNotification(message, type = 'info') {
+            if (typeof window.showNotification === 'function') {
+                window.showNotification(message, type);
+                return;
             }
-        });
+            
+            const notifications = document.getElementById('notifications');
+            if (!notifications) return;
+            
+            const notification = document.createElement('div');
+            notification.className = `p-3 rounded-lg shadow-lg text-white mb-2 bg-${type === 'error' ? 'red' : type === 'success' ? 'green' : 'blue'}-500`;
+            notification.textContent = message;
+            notifications.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
     });
     </script>
 </body>

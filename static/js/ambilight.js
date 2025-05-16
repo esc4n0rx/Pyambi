@@ -1,6 +1,8 @@
+// Correções para o efeito Ambilight
+
 /**
- * ambilight.js - Versão corrigida
- * Implementação otimizada do efeito Ambilight com melhor integração
+ * Este script deve substituir ou complementar o arquivo static/js/ambilight.js
+ * Ele corrige problemas relacionados à criação, posicionamento e animação das zonas Ambilight
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -24,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isAmbilightActive: true,
         zonesPerSide: 10,
         intensity: 1.0,
-        blurAmount: 15,
+        blurAmount: 20, // Aumentado para maior visibilidade
         isFullscreenMode: false,
     };
     
@@ -41,18 +43,30 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Inicialização
     function init() {
-        console.log("Inicializando efeito Ambilight...");
+        console.log("Inicializando efeito Ambilight (versão corrigida)...");
         
         // Garantir que o container tem overflow visível para o efeito funcionar
         videoContainer.style.overflow = 'visible';
         
-        // Garantir que o efeito Ambilight está visível
+        // Garantir que o efeito Ambilight está visível e configurado corretamente
         ambilightEffect.style.display = 'block';
+        ambilightEffect.style.position = 'absolute';
+        ambilightEffect.style.top = '0';
+        ambilightEffect.style.left = '0';
+        ambilightEffect.style.width = '100%';
+        ambilightEffect.style.height = '100%';
         ambilightEffect.style.zIndex = '0';
         ambilightEffect.style.pointerEvents = 'none';
+        ambilightEffect.style.overflow = 'visible';
+        
+        // Adicionar uma classe para indicar que o Ambilight está ativo
+        videoContainer.classList.add('ambilight-active');
         
         // Carregar configurações
         loadConfig();
+        
+        // Limpar qualquer zona existente
+        ambilightEffect.innerHTML = '';
         
         // Criar zonas
         createAmbilightZones();
@@ -70,8 +84,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log("Iniciando processamento com startVideoProcessing:", videoPlayer.getAttribute('data-path'));
                 } else {
                     console.error("Função startVideoProcessing não disponível!");
+                    // Ativar modo de demonstração se o WebSocket não estiver disponível
+                    testAmbilightEffect();
                 }
-            }, 1500); // Um pouco mais de delay para garantir que WebSocket esteja pronto
+            }, 1500);
+        } else {
+            // Se não houver vídeo, usar cores de teste para debug
+            console.log("Nenhum vídeo detectado, utilizando cores de teste");
+            testAmbilightEffect();
         }
         
         // Sobrescrever a função updateAmbilightColors para usar nossa implementação otimizada
@@ -104,53 +124,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 console.log("Configurações carregadas do servidor:", config);
                 
-                // Atualizar UI com as configurações carregadas
-                updateConfigUI();
-                
-                // Recriar zonas se necessário
+                // Recriar zonas com as novas configurações
                 createAmbilightZones();
+                
+                // Testar o efeito com as novas configurações
+                testAmbilightEffect();
             })
             .catch(error => {
                 console.warn("Erro ao carregar configurações do servidor:", error);
             });
-    }
-    
-    // Salva configurações
-    function saveConfig() {
-        try {
-            localStorage.setItem('ambilightConfig', JSON.stringify(config));
-        } catch (e) {
-            console.warn("Erro ao salvar configurações no localStorage:", e);
-        }
-    }
-    
-    // Atualiza a UI com base nas configurações
-    function updateConfigUI() {
-        // Intensidade
-        const intensitySlider = document.getElementById('intensity-slider');
-        const intensityValue = document.getElementById('intensity-value');
-        if (intensitySlider) {
-            intensitySlider.value = config.intensity * 100;
-        }
-        if (intensityValue) {
-            intensityValue.textContent = Math.round(config.intensity * 100);
-        }
-        
-        // Zonas por lado
-        const zonesSelect = document.getElementById('zones-select');
-        if (zonesSelect) {
-            zonesSelect.value = config.zonesPerSide;
-        }
-        
-        // Desfoque
-        const blurSlider = document.getElementById('blur-slider');
-        const blurValue = document.getElementById('blur-value');
-        if (blurSlider) {
-            blurSlider.value = config.blurAmount;
-        }
-        if (blurValue) {
-            blurValue.textContent = config.blurAmount;
-        }
     }
     
     // Configura event listeners
@@ -173,80 +155,16 @@ document.addEventListener('DOMContentLoaded', () => {
             ambilightEffect.classList.add('pulse-animation');
         });
         
-        // Toggle Ambilight se o botão existir
-        const toggleAmbilightBtn = document.getElementById('toggle-ambilight');
-        if (toggleAmbilightBtn) {
-            toggleAmbilightBtn.addEventListener('click', () => {
-                config.isAmbilightActive = !config.isAmbilightActive;
-                
-                // Atualizar ícone
-                const icon = toggleAmbilightBtn.querySelector('i');
-                if (icon) {
-                    icon.className = config.isAmbilightActive ? 'fas fa-lightbulb' : 'fas fa-lightbulb-slash';
-                }
-                
-                // Mostrar/esconder efeito
-                ambilightEffect.style.display = config.isAmbilightActive ? 'block' : 'none';
-                
-                // Iniciar/parar processamento
-                if (config.isAmbilightActive) {
-                    if (typeof window.startVideoProcessing === 'function') {
-                        window.startVideoProcessing(videoPlayer.getAttribute('data-path'));
-                    }
-                } else {
-                    if (typeof window.stopVideoProcessing === 'function') {
-                        window.stopVideoProcessing();
-                    }
-                }
-                
-                // Salvar configuração
-                saveConfig();
-            });
-        }
-        
-        // Aplicar configurações
-        const applySettingsBtn = document.getElementById('apply-settings');
-        if (applySettingsBtn) {
-            applySettingsBtn.addEventListener('click', applyConfig);
-        }
-    }
-    
-    // Aplica configurações
-    function applyConfig() {
-        // Obter valores da UI
-        const intensitySlider = document.getElementById('intensity-slider');
-        const zonesSelect = document.getElementById('zones-select');
-        const blurSlider = document.getElementById('blur-slider');
-        
-        if (intensitySlider) {
-            config.intensity = parseInt(intensitySlider.value) / 100;
-        }
-        
-        if (zonesSelect) {
-            const newZonesPerSide = parseInt(zonesSelect.value);
-            if (newZonesPerSide !== config.zonesPerSide) {
-                config.zonesPerSide = newZonesPerSide;
-                createAmbilightZones(); // Recriar zonas se o número mudou
+        // Evento para redimensionamento da janela
+        window.addEventListener('resize', () => {
+            // Recriar zonas quando a janela for redimensionada
+            createAmbilightZones();
+            
+            // Reaplicar cores atuais se existirem
+            if (currentColors) {
+                handleColorsUpdate(currentColors);
             }
-        }
-        
-        if (blurSlider) {
-            config.blurAmount = parseInt(blurSlider.value);
-        }
-        
-        // Salvar configurações
-        saveConfig();
-        
-        // Atualizar efeito se houver cores atuais
-        if (currentColors) {
-            handleColorsUpdate(currentColors);
-        }
-        
-        // Enviar configurações para o servidor
-        updateServerSettings();
-        
-        // Mostrar notificação
-        showNotification('Configurações aplicadas', 'success');
+        });
     }
     
     // Cria os elementos DOM para as zonas do Ambilight
@@ -267,6 +185,35 @@ document.addEventListener('DOMContentLoaded', () => {
         containers.right.className = 'ambilight-container right';
         containers.bottom.className = 'ambilight-container bottom';
         containers.left.className = 'ambilight-container left';
+        
+        // Definir estilo para os contêineres
+        containers.top.style.position = 'absolute';
+        containers.top.style.left = '0';
+        containers.top.style.right = '0';
+        containers.top.style.top = '-2px';
+        containers.top.style.height = '2px';
+        containers.top.style.overflow = 'visible';
+        
+        containers.right.style.position = 'absolute';
+        containers.right.style.top = '0';
+        containers.right.style.bottom = '0';
+        containers.right.style.right = '-2px';
+        containers.right.style.width = '2px';
+        containers.right.style.overflow = 'visible';
+        
+        containers.bottom.style.position = 'absolute';
+        containers.bottom.style.left = '0';
+        containers.bottom.style.right = '0';
+        containers.bottom.style.bottom = '-2px';
+        containers.bottom.style.height = '2px';
+        containers.bottom.style.overflow = 'visible';
+        
+        containers.left.style.position = 'absolute';
+        containers.left.style.top = '0';
+        containers.left.style.bottom = '0';
+        containers.left.style.left = '-2px';
+        containers.left.style.width = '2px';
+        containers.left.style.overflow = 'visible';
         
         // Criar zonas para cada lado
         for (let i = 0; i < config.zonesPerSide; i++) {
@@ -290,23 +237,26 @@ document.addEventListener('DOMContentLoaded', () => {
     function createZone(index, total, side) {
         const zone = document.createElement('div');
         zone.className = `ambilight-zone ${side}`;
+        
+        // Estilos essenciais para cada zona
         zone.style.position = 'absolute';
         zone.style.backgroundColor = 'transparent';
         zone.style.overflow = 'visible';
+        zone.style.zIndex = '0';
         
         const percentage = (index / total) * 100;
         const size = 100 / total;
         
         if (side === 'top' || side === 'bottom') {
             zone.style.left = `${percentage}%`;
-            zone.style[side] = '0';
             zone.style.width = `${size}%`;
             zone.style.height = '100%';
-        } else { // left or right
             zone.style[side] = '0';
+        } else { // left or right
             zone.style.top = `${percentage}%`;
-            zone.style.width = '100%';
             zone.style.height = `${size}%`;
+            zone.style.width = '100%';
+            zone.style[side] = '0';
         }
         
         return zone;
@@ -315,9 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Manipula atualizações de cores do servidor
     function handleColorsUpdate(colors) {
         if (!config.isAmbilightActive || !colors) return;
-        
-        // Registrar recebimento de cores para debug
-        console.log("Recebendo atualização de cores");
         
         // Armazenar cores atuais para reutilização
         currentColors = colors;
@@ -335,6 +282,9 @@ document.addEventListener('DOMContentLoaded', () => {
             config.zonesPerSide = colors[firstSide].length;
             createAmbilightZones();
         }
+        
+        // Adicionar classe ao container para ativar efeito
+        videoContainer.classList.add('ambilight-active');
         
         // Aplicar cores a cada lado
         for (const side in zones) {
@@ -370,129 +320,26 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const colorString = `rgb(${r}, ${g}, ${b})`;
             
-            // Determine o valor do desfoque com base na intensidade da cor
-            // Cores mais intensas (brilhantes) receberão mais desfoque
+            // Determinar o valor do desfoque com base na intensidade da cor
             const colorIntensity = (r + g + b) / 765; // 765 = 255 * 3, normaliza entre 0 e 1
             const dynamicBlur = Math.max(config.blurAmount * colorIntensity, config.blurAmount * 0.5);
             
-            // Definir a sombra baseada no lado
+            // Definir a sombra baseada no lado - VALORES MAIORES PARA MAIS VISIBILIDADE
             let shadowString = '';
             
             if (side === 'top') {
-                shadowString = `0 -${dynamicBlur}px ${dynamicBlur * 2}px ${colorString}`;
+                shadowString = `0 -${dynamicBlur}px ${dynamicBlur * 2.5}px 5px ${colorString}`;
             } else if (side === 'right') {
-                shadowString = `${dynamicBlur}px 0 ${dynamicBlur * 2}px ${colorString}`;
+                shadowString = `${dynamicBlur}px 0 ${dynamicBlur * 2.5}px 5px ${colorString}`;
             } else if (side === 'bottom') {
-                shadowString = `0 ${dynamicBlur}px ${dynamicBlur * 2}px ${colorString}`;
+                shadowString = `0 ${dynamicBlur}px ${dynamicBlur * 2.5}px 5px ${colorString}`;
             } else if (side === 'left') {
-                shadowString = `-${dynamicBlur}px 0 ${dynamicBlur * 2}px ${colorString}`;
+                shadowString = `-${dynamicBlur}px 0 ${dynamicBlur * 2.5}px 5px ${colorString}`;
             }
             
-            // Aplicar a sombra com transição suave
-            zone.style.transition = 'box-shadow 0.05s linear';
+            // Aplicar a sombra diretamente (sem transição para debug)
             zone.style.boxShadow = shadowString;
         }
-    }
-    
-    // Envia configurações para o servidor
-    function updateServerSettings() {
-        if (typeof window.updateServerSettings === 'function') {
-            window.updateServerSettings({
-                intensity: config.intensity,
-                zones_per_side: config.zonesPerSide,
-                blur_amount: config.blurAmount
-            });
-        } else {
-            console.warn("Função updateServerSettings não disponível");
-            
-            // Tentar alternativa via fetch
-            fetch('/api/settings', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    intensity: config.intensity,
-                    zones_per_side: config.zonesPerSide,
-                    blur_amount: config.blurAmount
-                })
-            }).catch(error => {
-                console.error("Erro ao enviar configurações:", error);
-            });
-        }
-    }
-    
-    // Função para exibir notificações
-    function showNotification(message, type = 'info') {
-        if (typeof window.showNotification === 'function') {
-            window.showNotification(message, type);
-            return;
-        }
-        
-        // Função de fallback se a global não existir
-        const notifications = document.getElementById('notifications');
-        if (!notifications) return;
-        
-        const notification = document.createElement('div');
-        notification.className = 'notification p-3 rounded-lg shadow-lg flex items-center mb-2 text-white';
-        
-        // Define a cor baseada no tipo
-        switch (type) {
-            case 'success':
-                notification.classList.add('bg-green-500');
-                break;
-            case 'error':
-                notification.classList.add('bg-red-500');
-                break;
-            case 'warning':
-                notification.classList.add('bg-yellow-500');
-                break;
-            default:
-                notification.classList.add('bg-blue-500');
-        }
-        
-        // Ícone para o tipo
-        let icon;
-        switch (type) {
-            case 'success':
-                icon = 'fa-check-circle';
-                break;
-            case 'error':
-                icon = 'fa-exclamation-circle';
-                break;
-            case 'warning':
-                icon = 'fa-exclamation-triangle';
-                break;
-            default:
-                icon = 'fa-info-circle';
-        }
-        
-        notification.innerHTML = `
-            <i class="fas ${icon} mr-2"></i>
-            <span>${message}</span>
-            <button class="ml-auto text-white">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
-        
-        // Adiciona ao container
-        notifications.appendChild(notification);
-        
-        // Remove depois de 5 segundos
-        setTimeout(() => {
-            notification.classList.add('opacity-0');
-            setTimeout(() => {
-                notification.remove();
-            }, 300);
-        }, 5000);
-        
-        // Fecha ao clicar no X
-        notification.querySelector('button').addEventListener('click', () => {
-            notification.classList.add('opacity-0');
-            setTimeout(() => {
-                notification.remove();
-            }, 300);
-        });
     }
     
     // Testa o efeito Ambilight com cores aleatórias
@@ -517,6 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
             left: generateRandomColors(config.zonesPerSide)
         };
         
+        console.log("Testando efeito Ambilight com cores aleatórias");
         handleColorsUpdate(testColors);
     }
     
@@ -535,7 +383,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentColors) {
                 handleColorsUpdate(currentColors);
             }
-            saveConfig();
         },
         setZones: (value) => {
             config.zonesPerSide = parseInt(value);
@@ -543,29 +390,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentColors) {
                 handleColorsUpdate(currentColors);
             }
-            saveConfig();
         },
         setBlur: (value) => {
             config.blurAmount = parseInt(value);
             if (currentColors) {
                 handleColorsUpdate(currentColors);
             }
-            saveConfig();
         },
         refreshEffect: () => {
             createAmbilightZones();
             if (currentColors) {
                 handleColorsUpdate(currentColors);
+            } else {
+                testAmbilightEffect();
             }
         },
         test: testAmbilightEffect
     };
-    
-    // Forçar um teste do efeito após um curto delay para debug
-    setTimeout(() => {
-        testAmbilightEffect();
-        console.log("Efeito Ambilight testado com cores aleatórias");
-    }, 2000);
     
     // Inicializar
     init();
