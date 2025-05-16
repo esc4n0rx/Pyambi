@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ambilight Player</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/player.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        /* Estilos críticos inline para garantir que funcionem */
+        #video-container {
+            position: relative !important;
+            overflow: visible !important;
+            z-index: 10;
+        }
+        
+        #ambilight-effect {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 0 !important;
+            pointer-events: none !important;
+            overflow: visible !important;
+        }
+        
+        /* Contêineres das zonas Ambilight */
+        .ambilight-container {
+            position: absolute;
+            overflow: visible !important;
+        }
+        
+        /* Zonas Ambilight */
+        .ambilight-zone {
+            position: absolute;
+            overflow: visible !important;
+            background-color: transparent !important;
+            z-index: 0 !important;
+        }
+        
+        /* Animação de pulsação */
+        @keyframes subtle-pulse {
+            0%, 100% { opacity: 0.85; }
+            50% { opacity: 1; }
+        }
+        
+        .pulse-animation {
+            animation: subtle-pulse 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-black min-h-screen flex items-center justify-center">
+    <div class="player-container">
+        <!-- Container do vídeo com efeito Ambilight -->
+        <div id="video-container" class="video-container relative rounded-lg overflow-visible">
+            <!-- O efeito Ambilight será aplicado a este div -->
+            <div id="ambilight-effect" class="absolute inset-0 z-0 rounded-lg"></div>
+            
+            <!-- Player de vídeo -->
+            <video 
+                id="video-player" 
+                class="w-full h-full object-contain z-10 rounded-lg"
+                playsinline
+                data-path="{{ video_path }}"
+            >
+                <source src="{{ video_path }}" type="video/mp4">
+                Seu navegador não suporta vídeos HTML5.
+            </video>
+            
+            <!-- Overlay para clique play/pause -->
+            <div id="video-overlay" class="absolute inset-0 z-20 cursor-pointer flex items-center justify-center rounded-lg">
+                <div id="play-button" class="video-control w-16 h-16 bg-primary/50 opacity-0 transition-opacity duration-300">
+                    <i class="fas fa-play text-2xl"></i>
+                </div>
+            </div>
+            
+            <!-- Barra de controles -->
+            <div class="control-bar z-30 rounded-b-lg">
+                <!-- Barra de progresso -->
+                <div class="mb-4 relative group">
+                    <input 
+                        type="range" 
+                        id="progress-bar" 
+                        class="slider w-full" 
+                        min="0" 
+                        max="100" 
+                        value="0" 
+                        step="0.1"
+                    >
+                    <div id="buffered-bar" class="absolute top-1 left-0 h-2 bg-white/30 pointer-events-none"></div>
+                    <div id="progress-indicator" class="absolute top-1 left-0 h-2 bg-primary pointer-events-none"></div>
+                </div>
+                
+                <!-- Botões de controle -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <!-- Play/Pause -->
+                        <button id="play-pause-btn" class="video-control">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        
+                        <!-- Volume -->
+                        <div class="flex items-center group relative">
+                            <button id="mute-btn" class="video-control">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                            <div class="w-0 overflow-hidden group-hover:w-24 transition-all duration-300">
+                                <input 
+                                    type="range" 
+                                    id="volume-slider" 
+                                    class="slider ml-2" 
+                                    min="0" 
+                                    max="1" 
+                                    step="0.1" 
+                                    value="1"
+                                >
+                            </div>
+                        </div>
+                        
+                        <!-- Tempo atual / Duração -->
+                        <div class="text-white text-sm">
+                            <span id="current-time">0:00</span>
+                            <span> / </span>
+                            <span id="duration">0:00</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-3">
+                        <!-- Toggle Ambilight -->
+                        <button id="toggle-ambilight" class="video-control" title="Ativar/Desativar Ambilight">
+                            <i class="fas fa-lightbulb"></i>
+                        </button>
+                        
+                        <!-- Configurações -->
+                        <button id="settings-btn" class="video-control" title="Configurações">
+                            <i class="fas fa-sliders-h"></i>
+                        </button>
+                        
+                        <!-- Voltar -->
+                        <a href="{{ url_for('index') }}" class="video-control" title="Voltar para Início">
+                            <i class="fas fa-arrow-left"></i>
+                        </a>
+                        
+                        <!-- Fullscreen -->
+                        <button id="fullscreen-btn" class="video-control">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Painel flutuante de configurações -->
+        <!-- <div id="settings-panel" class="hidden absolute right-0 top-0 bg-gray-900/90 p-4 rounded-lg shadow-lg backdrop-blur-md text-white z-40 w-64 transform translate-x-full transition-transform duration-300">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">Configurações</h3>
+                <button id="close-settings" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        
+             <div class="mb-4">
+                <label for="intensity-slider" class="block mb-2 text-sm">
+                    Intensidade: <span id="intensity-value">100</span>%
+                </label>
+                <input 
+                    type="range" 
+                    id="intensity-slider" 
+                    class="slider" 
+                    min="0" 
+                    max="100" 
+                    value="100" 
+                    step="1"
+                >
+            </div> -->
+            
+            <!-- Zonas por lado
+            <div class="mb-4">
+                <label for="zones-select" class="block mb-2 text-sm">Zonas por lado:</label>
+                <select id="zones-select" class="w-full p-2 bg-gray-800 rounded text-sm">
+                    <option value="5">5 zonas</option>
+                    <option value="10" selected>10 zonas</option>
+                    <option value="15">15 zonas</option>
+                    <option value="20">20 zonas</option>
+                </select>
+            </div>
+            
+            Desfoque -->
+            <!-- <div class="mb-4">
+                <label for="blur-slider" class="block mb-2 text-sm">
+                    Desfoque: <span id="blur-value">15</span>px
+                </label>
+                <input 
+                    type="range" 
+                    id="blur-slider" 
+                    class="slider" 
+                    min="5" 
+                    max="50" 
+                    value="15" 
+                    step="1"
+                >
+            </div>
+            
+            <button id="apply-settings" class="btn btn-primary w-full text-sm py-2">
+                Aplicar
+            </button> -->
+
+    </div>
+    
+    <!-- Debug info (invisível) -->
+    <div id="debug-info" style="display: none; position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px; border-radius: 3px; font-size: 10px;"></div>
+    
+    <!-- Notificações -->
+    <div id="notifications" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/player.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ambilight.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/websocket.js') }}"></script>
+    
+    <!-- Script para mostrar debug info -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mostrar info de debug com duplo clique em qualquer lugar
+        document.addEventListener('dblclick', function() {
+            const debugInfo = document.getElementById('debug-info');
+            if (debugInfo) {
+                const videoPlayer = document.getElementById('video-player');
+                const ambilightEffect = document.getElementById('ambilight-effect');
+                
+                let status = 'Estado do player:\n';
+                status += `- video_path: ${videoPlayer ? videoPlayer.getAttribute('data-path') : 'não disponível'}\n`;
+                status += `- ambilight-effect: ${ambilightEffect ? (ambilightEffect.children.length + ' zonas criadas') : 'não disponível'}\n`;
+                
+                if (window.websocketDebug) {
+                    status += `- WebSocket: ${window.websocketDebug.status()}\n`;
+                }
+                
+                if (window.ambilightAPI) {
+                    status += `- Ambilight ativo: ${window.ambilightAPI.isActive()}\n`;
+                }
+                
+                debugInfo.textContent = status;
+                debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+            }
+        });
+        
+        // Testar Ambilight com Shift+Alt+A
+        document.addEventListener('keydown', function(e) {
+            if (e.shiftKey && e.altKey && e.key === 'A') {
+                if (window.ambilightAPI && typeof window.ambilightAPI.test === 'function') {
+                    window.ambilightAPI.test();
+                    console.log('Teste do efeito Ambilight ativado');
+                }
+            }
+        });
+    });
+    </script>
+</body>
+</html>

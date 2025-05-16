@@ -3,20 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ambilight Video Player</title>
+    <title>Ambilight Video Player - Gerenciador</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/ambilight.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-6">
-        <header class="mb-6">
+        <header class="mb-8">
             <div class="flex flex-col md:flex-row justify-between items-center mb-6">
                 <h1 class="text-3xl font-bold text-primary mb-2 md:mb-0">
                     <i class="fas fa-video"></i> Ambilight Player
                 </h1>
                 <nav class="flex space-x-4">
-                    <a href="{{ url_for('index') }}" class="font-medium hover:text-primary transition">
+                    <a href="{{ url_for('index') }}" class="font-medium text-primary transition">
                         <i class="fas fa-home"></i> Início
                     </a>
                     <a href="{{ url_for('settings_page') }}" class="font-medium hover:text-primary transition">
@@ -27,208 +26,121 @@
                     </a>
                 </nav>
             </div>
-            <p class="text-gray-600 dark:text-gray-400">Player de vídeo com efeito Ambilight em tempo real</p>
+            <p class="text-gray-600 dark:text-gray-400">Gerenciador de vídeos com efeito Ambilight</p>
         </header>
 
         <main>
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <!-- Player de vídeo (3/4 da largura em telas grandes) -->
-                <div class="lg:col-span-3">
-                    <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-                        <!-- Container do vídeo com efeito Ambilight -->
-                        <div id="video-container" class="video-container relative aspect-video bg-black">
-                            <!-- O efeito Ambilight será aplicado a este div -->
-                            <div id="ambilight-effect" class="absolute inset-0 z-0"></div>
-                            
-                            <!-- Player de vídeo -->
-                            <video 
-                                id="video-player" 
-                                class="w-full h-full object-contain z-10"
-                                playsinline
-                            >
-                                <source src="" type="video/mp4">
-                                Seu navegador não suporta vídeos HTML5.
-                            </video>
-                            
-                            <!-- Overlay para clique play/pause -->
-                            <div id="video-overlay" class="absolute inset-0 z-20 cursor-pointer flex items-center justify-center">
-                                <div id="play-button" class="video-control w-16 h-16 bg-primary/50 opacity-0 transition-opacity duration-300">
-                                    <i class="fas fa-play text-2xl"></i>
-                                </div>
-                            </div>
-                            
-                            <!-- Barra de controles -->
-                            <div class="control-bar z-30">
-                                <!-- Barra de progresso -->
-                                <div class="mb-4 relative group">
-                                    <input 
-                                        type="range" 
-                                        id="progress-bar" 
-                                        class="slider w-full" 
-                                        min="0" 
-                                        max="100" 
-                                        value="0" 
-                                        step="0.1"
-                                    >
-                                    <div id="buffered-bar" class="absolute top-1 left-0 h-2 bg-white/30 pointer-events-none"></div>
-                                    <div id="progress-indicator" class="absolute top-1 left-0 h-2 bg-primary pointer-events-none"></div>
-                                </div>
-                                
-                                <!-- Botões de controle -->
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center space-x-3">
-                                        <!-- Play/Pause -->
-                                        <button id="play-pause-btn" class="video-control">
-                                            <i class="fas fa-play"></i>
-                                        </button>
-                                        
-                                        <!-- Volume -->
-                                        <div class="flex items-center group relative">
-                                            <button id="mute-btn" class="video-control">
-                                                <i class="fas fa-volume-up"></i>
-                                            </button>
-                                            <div class="w-0 overflow-hidden group-hover:w-24 transition-all duration-300">
-                                                <input 
-                                                    type="range" 
-                                                    id="volume-slider" 
-                                                    class="slider ml-2" 
-                                                    min="0" 
-                                                    max="1" 
-                                                    step="0.1" 
-                                                    value="1"
-                                                >
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Tempo atual / Duração -->
-                                        <div class="text-white text-sm">
-                                            <span id="current-time">0:00</span>
-                                            <span> / </span>
-                                            <span id="duration">0:00</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="flex items-center space-x-3">
-                                        <!-- Toggle Ambilight -->
-                                        <button id="toggle-ambilight" class="video-control" title="Ativar/Desativar Ambilight">
-                                            <i class="fas fa-lightbulb"></i>
-                                        </button>
-                                        
-                                        <!-- Fullscreen -->
-                                        <button id="fullscreen-btn" class="video-control">
-                                            <i class="fas fa-expand"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+            <!-- Área de upload -->
+            <div id="upload-area" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg mb-8 border-2 border-dashed border-gray-300 dark:border-gray-700">
+                <div class="upload-content">
+                    <div class="flex flex-col items-center mb-4">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-primary mb-2"></i>
+                        <h3 class="text-xl font-semibold mb-2">Arraste e solte um vídeo aqui</h3>
+                        <p class="text-gray-500 dark:text-gray-400 mb-4">ou</p>
+                        <label for="file-upload" class="btn btn-primary">
+                            <span>Selecionar arquivo</span>
+                            <input id="file-upload" type="file" class="hidden" accept=".mp4,.mkv,.avi,.mov,.webm">
+                        </label>
                     </div>
-                    
-                    <!-- Área de upload -->
-                    <div id="upload-area" class="mt-6 p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-center">
-                        <div class="upload-content">
-                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
-                            <h3 class="text-lg font-semibold mb-2">Arraste e solte um vídeo aqui</h3>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">ou</p>
-                            <label for="file-upload" class="btn btn-primary">
-                                <span>Selecionar arquivo</span>
-                                <input id="file-upload" type="file" class="hidden" accept=".mp4,.mkv,.avi,.mov,.webm">
-                            </label>
-                            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                Formatos suportados: MP4, MKV, AVI, MOV, WEBM
-                            </p>
-                        </div>
-                        <div id="upload-progress" class="hidden">
-                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
-                                <div id="progress-bar-upload" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
-                            </div>
-                            <p id="progress-text" class="text-sm">0%</p>
-                        </div>
+                    <p class="text-center text-sm text-gray-500 dark:text-gray-400">
+                        Formatos suportados: MP4, MKV, AVI, MOV, WEBM
+                    </p>
+                </div>
+                <div id="upload-progress" class="hidden">
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+                        <div id="progress-bar-upload" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <p id="progress-text" class="text-center text-sm">0%</p>
+                </div>
+            </div>
+            
+            <!-- Biblioteca de vídeos -->
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold">
+                        <i class="fas fa-film mr-2"></i> Meus Vídeos
+                    </h2>
+                    <div class="relative">
+                        <input type="text" id="search-videos" placeholder="Buscar vídeos..." class="p-2 pl-8 rounded bg-gray-100 dark:bg-gray-700 w-full">
+                        <i class="fas fa-search absolute left-2 top-3 text-gray-400"></i>
                     </div>
                 </div>
                 
-                <!-- Painel lateral (1/4 da largura em telas grandes) -->
-                <div class="lg:col-span-1">
-                    <!-- Histórico de vídeos -->
-                    <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-6">
-                        <h2 class="text-xl font-bold mb-4 flex items-center">
-                            <i class="fas fa-history mr-2"></i> Histórico
-                        </h2>
-                        <div id="history-list" class="space-y-2 max-h-96 overflow-y-auto">
-                            <!-- Itens do histórico serão adicionados aqui pelo JavaScript -->
-                            <div class="text-gray-500 dark:text-gray-400 text-center p-4">
-                                Nenhum vídeo reproduzido recentemente
-                            </div>
-                        </div>
+                <!-- Lista de vídeos -->
+                <div id="videos-grid" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <!-- Os vídeos serão carregados dinamicamente aqui -->
+                    <div class="video-loading text-center p-4">
+                        <i class="fas fa-spinner fa-spin text-2xl text-primary mb-2"></i>
+                        <p>Carregando vídeos...</p>
                     </div>
-                    
-                    <!-- Configurações rápidas do Ambilight -->
-                    <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-                        <h2 class="text-xl font-bold mb-4 flex items-center">
-                            <i class="fas fa-sliders-h mr-2"></i> Ajustes Rápidos
-                        </h2>
-                        
-                        <!-- Intensidade -->
-                        <div class="mb-4">
-                            <label for="intensity-slider" class="block mb-2">
-                                Intensidade: <span id="intensity-value">100</span>%
-                            </label>
-                            <input 
-                                type="range" 
-                                id="intensity-slider" 
-                                class="slider" 
-                                min="0" 
-                                max="100" 
-                                value="100" 
-                                step="1"
-                            >
-                        </div>
-                        
-                        <!-- Zonas por lado -->
-                        <div class="mb-4">
-                            <label for="zones-select" class="block mb-2">Zonas por lado:</label>
-                            <select id="zones-select" class="w-full p-2 bg-gray-100 dark:bg-gray-700 rounded">
-                                <option value="5">5 zonas</option>
-                                <option value="10" selected>10 zonas</option>
-                                <option value="15">15 zonas</option>
-                                <option value="20">20 zonas</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Desfoque -->
-                        <div class="mb-4">
-                            <label for="blur-slider" class="block mb-2">
-                                Desfoque: <span id="blur-value">15</span>px
-                            </label>
-                            <input 
-                                type="range" 
-                                id="blur-slider" 
-                                class="slider" 
-                                min="5" 
-                                max="50" 
-                                value="15" 
-                                step="1"
-                            >
-                        </div>
-                        
-                        <button id="apply-settings" class="btn btn-primary w-full">
-                            Aplicar Ajustes
-                        </button>
+                </div>
+            </div>
+            
+            <!-- Histórico de reprodução -->
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-bold mb-4">
+                    <i class="fas fa-history mr-2"></i> Histórico Recente
+                </h2>
+                
+                <div id="history-list" class="space-y-3 max-h-96 overflow-y-auto">
+                    <!-- Histórico será carregado dinamicamente aqui -->
+                    <div class="text-gray-500 dark:text-gray-400 text-center p-4">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>
+                        Carregando histórico...
                     </div>
                 </div>
             </div>
         </main>
+        
+        <footer class="mt-8 text-center text-gray-500 dark:text-gray-400 text-sm">
+            <p>Ambilight Video Player &copy; 2025</p>
+        </footer>
     </div>
+    
+    <!-- Template para item de vídeo -->
+    <template id="video-item-template">
+        <div class="video-item bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer">
+            <div class="aspect-video bg-black relative">
+                <div class="thumbnail w-full h-full flex items-center justify-center">
+                    <i class="fas fa-film text-4xl text-gray-400"></i>
+                </div>
+                <div class="hover-overlay absolute inset-0 bg-black bg-opacity-50 opacity-0 hover:opacity-100 transition flex items-center justify-center">
+                    <button class="play-btn bg-primary rounded-full w-12 h-12 flex items-center justify-center">
+                        <i class="fas fa-play text-white"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-3">
+                <h3 class="video-name font-medium truncate"></h3>
+                <div class="flex justify-between items-center mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    <span class="video-date"></span>
+                    <span class="video-size"></span>
+                </div>
+            </div>
+        </div>
+    </template>
+    
+    <!-- Template para item do histórico -->
+    <template id="history-item-template">
+        <div class="history-item flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer">
+            <div class="bg-gray-200 dark:bg-gray-700 rounded-lg w-12 h-12 flex items-center justify-center">
+                <i class="fas fa-film text-gray-500 dark:text-gray-400"></i>
+            </div>
+            <div class="flex-grow overflow-hidden">
+                <p class="history-name font-medium truncate"></p>
+                <p class="history-date text-xs text-gray-500 dark:text-gray-400"></p>
+            </div>
+            <a href="#" class="play-history-btn bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center">
+                <i class="fas fa-play"></i>
+            </a>
+        </div>
+    </template>
     
     <!-- Notificações -->
     <div id="notifications" class="fixed top-4 right-4 z-50 space-y-2"></div>
 
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="{{ url_for('static', filename='js/player.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/ambilight.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/websocket.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/debug.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/manager.js') }}"></script>
 </body>
 </html>

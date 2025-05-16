@@ -11,7 +11,7 @@ from datetime import datetime
 
 from app.ambilight import AmbilightProcessor
 from app.models import DatabaseManager, Settings, History
-from app.utils import sanitize_filename, create_directory_if_not_exists, is_video_format_supported
+from app.utils import list_supported_videos, sanitize_filename, create_directory_if_not_exists, is_video_format_supported
 
 # Configuração da aplicação Flask
 app = Flask(__name__, 
@@ -163,6 +163,38 @@ def get_history_api():
     """API para obter histórico de vídeos."""
     limit = request.args.get('limit', 10, type=int)
     return jsonify(get_history(limit))
+
+@app.route('/player/<path:filename>')
+def player_page(filename):
+    """Página dedicada do player."""
+    video_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    
+    # Verificar se o arquivo existe
+    if not os.path.exists(video_path):
+        return render_template('error.html', error='Arquivo de vídeo não encontrado'), 404
+    
+    # Verificar se o formato é suportado
+    if not is_video_format_supported(filename, app.config['ALLOWED_EXTENSIONS']):
+        return render_template('error.html', error='Formato de vídeo não suportado'), 400
+    
+    # Adicionar ao histórico
+    add_to_history(filename, video_path)
+    
+    # Renderizar a página do player
+    return render_template('player.html', video_path=f'/uploads/{filename}')
+
+
+@app.route('/api/videos')
+def get_videos_api():
+    """API para obter a lista de vídeos disponíveis."""
+    uploads_dir = app.config['UPLOAD_FOLDER']
+    allowed_extensions = app.config['ALLOWED_EXTENSIONS']
+    
+    try:
+        videos = list_supported_videos(uploads_dir, allowed_extensions)
+        return jsonify(videos)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():

@@ -1,7 +1,6 @@
-
 /**
- * Player de vídeo para o Ambilight Player
- * Gerencia os controles e funcionalidades do player de vídeo
+ * player.js - Versão corrigida
+ * Corrige os erros de elementos nulos e melhora a integração com o efeito Ambilight
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -19,14 +18,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentTimeDisplay = document.getElementById('current-time');
     const durationDisplay = document.getElementById('duration');
     const volumeSlider = document.getElementById('volume-slider');
-    const toggleAmbilight = document.getElementById('toggle-ambilight');
-    const uploadArea = document.getElementById('upload-area');
-    const fileUpload = document.getElementById('file-upload');
-    const progressBarUpload = document.getElementById('progress-bar-upload');
-    const progressText = document.getElementById('progress-text');
-    const uploadContent = document.querySelector('.upload-content');
-    const uploadProgress = document.getElementById('upload-progress');
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsPanel = document.getElementById('settings-panel');
+    const closeSettingsBtn = document.getElementById('close-settings');
     
+    // Verificar elementos críticos antes de prosseguir
+    if (!videoPlayer || !videoContainer) {
+        console.error('Elementos críticos do player não encontrados!');
+        return; // Sai da função se elementos críticos não existirem
+    }
+
     // Estado do player
     let isAmbilightActive = true;
     let hideControlsTimeout;
@@ -34,85 +35,70 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Inicialização
     initPlayer();
-    loadHistory();
     
     // Funções de inicialização
     function initPlayer() {
-        // Carregar configurações
-        fetch('/api/settings')
-            .then(response => response.json())
-            .then(settings => {
-                // Aplicar configurações
-                document.getElementById('intensity-slider').value = settings.intensity * 100;
-                document.getElementById('intensity-value').textContent = Math.round(settings.intensity * 100);
-                document.getElementById('zones-select').value = settings.zones_per_side;
-                document.getElementById('blur-slider').value = settings.blur_amount;
-                document.getElementById('blur-value').textContent = settings.blur_amount;
-            })
-            .catch(error => {
-                console.error('Erro ao carregar configurações:', error);
-                showNotification('Erro ao carregar configurações', 'error');
-            });
+        console.log("Inicializando player de vídeo...");
         
-        // Adicionar event listeners
+        // Carregar configurações com verificação de elementos
+        loadSettings();
+        
+        // Adicionar event listeners apenas se os elementos existirem
         addVideoEventListeners();
         addControlEventListeners();
-        setupDragAndDrop();
+        
+        // Iniciar o processamento Ambilight se o vídeo tiver um caminho definido
+        if (videoPlayer && videoPlayer.getAttribute('data-path')) {
+            // Delay para garantir que o WebSocket esteja conectado
+            setTimeout(() => {
+                if (typeof window.startVideoProcessing === 'function') {
+                    window.startVideoProcessing(videoPlayer.getAttribute('data-path'));
+                    console.log("Iniciando processamento Ambilight para:", videoPlayer.getAttribute('data-path'));
+                } else {
+                    console.error("Função startVideoProcessing não disponível");
+                }
+            }, 1000);
+        }
     }
     
-    // Carrega o histórico de vídeos
-    function loadHistory() {
-        fetch('/api/history')
-            .then(response => response.json())
-            .then(history => {
-                const historyList = document.getElementById('history-list');
-                
-                // Limpa o histórico atual
-                historyList.innerHTML = '';
-                
-                if (history.length === 0) {
-                    historyList.innerHTML = `
-                        <div class="text-gray-500 dark:text-gray-400 text-center p-4">
-                            Nenhum vídeo reproduzido recentemente
-                        </div>
-                    `;
-                    return;
-                }
-                
-                // Adiciona cada item ao histórico
-                history.forEach(item => {
-                    const historyItem = document.createElement('div');
-                    historyItem.className = 'history-item';
-                    historyItem.innerHTML = `
-                        <div class="bg-gray-200 dark:bg-gray-700 rounded-lg w-12 h-12 flex items-center justify-center">
-                            <i class="fas fa-film text-gray-500 dark:text-gray-400"></i>
-                        </div>
-                        <div class="flex-grow overflow-hidden">
-                            <p class="font-medium truncate">${item.filename}</p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">
-                                ${new Date(item.last_played).toLocaleString()}
-                            </p>
-                        </div>
-                    `;
+    // Carrega as configurações com segurança
+    function loadSettings() {
+        try {
+            fetch('/api/settings')
+                .then(response => response.json())
+                .then(settings => {
+                    // Aplicar configurações com verificações de null
+                    const intensitySlider = document.getElementById('intensity-slider');
+                    const intensityValue = document.getElementById('intensity-value');
+                    const zonesSelect = document.getElementById('zones-select');
+                    const blurSlider = document.getElementById('blur-slider');
+                    const blurValue = document.getElementById('blur-value');
                     
-                    // Adiciona evento de clique para carregar o vídeo
-                    historyItem.addEventListener('click', () => {
-                        loadVideo(`/uploads/${item.filename.replace(/^.*[\\\/]/, '')}`);
-                    });
+                    if (intensitySlider) intensitySlider.value = settings.intensity * 100;
+                    if (intensityValue) intensityValue.textContent = Math.round(settings.intensity * 100);
+                    if (zonesSelect) zonesSelect.value = settings.zones_per_side;
+                    if (blurSlider) blurSlider.value = settings.blur_amount;
+                    if (blurValue) blurValue.textContent = settings.blur_amount;
                     
-                    historyList.appendChild(historyItem);
+                    console.log("Configurações carregadas com sucesso");
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar configurações:', error);
+                    showNotification('Erro ao carregar configurações', 'error');
                 });
-            })
-            .catch(error => {
-                console.error('Erro ao carregar histórico:', error);
-                showNotification('Erro ao carregar histórico', 'error');
-            });
+        } catch (e) {
+            console.error("Erro ao carregar configurações:", e);
+        }
     }
     
     // Event listeners para o player de vídeo
     function addVideoEventListeners() {
-        // Play/Pause no vídeo
-        videoOverlay.addEventListener('click', togglePlayPause);
+        if (!videoPlayer) return;
+        
+        // Play/Pause no vídeo (com verificação de overlay)
+        if (videoOverlay) {
+            videoOverlay.addEventListener('click', togglePlayPause);
+        }
         
         // Atualiza a barra de progresso enquanto o vídeo é reproduzido
         videoPlayer.addEventListener('timeupdate', updateProgress);
@@ -152,152 +138,170 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Event listeners para os controles do player
+    // Event listeners para os controles do player, com verificações
     function addControlEventListeners() {
-        // Play/Pause
-        playPauseBtn.addEventListener('click', togglePlayPause);
-        
-        // Mute/Unmute
-        muteBtn.addEventListener('click', toggleMute);
-        
-        // Volume
-        volumeSlider.addEventListener('input', () => {
-            videoPlayer.volume = volumeSlider.value;
-            updateVolumeIcon();
-        });
-        
-        // Fullscreen
-        fullscreenBtn.addEventListener('click', toggleFullscreen);
-        
-        // Progresso do vídeo (barra de progresso)
-        progressBar.addEventListener('input', () => {
-            const seekTime = (progressBar.value / 100) * videoPlayer.duration;
-            videoPlayer.currentTime = seekTime;
-        });
-        
-        // Toggle Ambilight
-        toggleAmbilight.addEventListener('click', () => {
-            isAmbilightActive = !isAmbilightActive;
-            toggleAmbilight.querySelector('i').classList.toggle('fa-lightbulb', isAmbilightActive);
-            toggleAmbilight.querySelector('i').classList.toggle('fa-lightbulb-slash', !isAmbilightActive);
-            
-            const ambilightEffect = document.getElementById('ambilight-effect');
-            if (isAmbilightActive) {
-                videoContainer.classList.add('ambilight-active');
-                ambilightEffect.style.display = 'block';
-                socketConnection.emit('start_video_processing', { video_path: videoPlayer.getAttribute('data-path') });
-            } else {
-                videoContainer.classList.remove('ambilight-active');
-                ambilightEffect.style.display = 'none';
-                socketConnection.emit('stop_video_processing');
-            }
-        });
-        
-        // Configurações rápidas
-        document.getElementById('apply-settings').addEventListener('click', () => {
-            const intensity = document.getElementById('intensity-slider').value / 100;
-            const zones = document.getElementById('zones-select').value;
-            const blur = document.getElementById('blur-slider').value;
-            
-            const settings = {
-                intensity: intensity,
-                zones_per_side: parseInt(zones),
-                blur_amount: parseInt(blur)
-            };
-            
-            socketConnection.emit('update_settings', settings);
-            showNotification('Configurações aplicadas', 'success');
-        });
-        
-        // Atualizações ao vivo dos valores
-        document.getElementById('intensity-slider').addEventListener('input', function() {
-            document.getElementById('intensity-value').textContent = this.value;
-        });
-        
-        document.getElementById('blur-slider').addEventListener('input', function() {
-            document.getElementById('blur-value').textContent = this.value;
-        });
-        
-        // Auto-hide dos controles
-        videoContainer.addEventListener('mousemove', () => {
-            const controlBar = document.querySelector('.control-bar');
-            controlBar.style.opacity = '1';
-            clearTimeout(hideControlsTimeout);
-            
-            if (!videoPlayer.paused && !isUserInteracting) {
-                hideControlsTimeout = setTimeout(() => {
-                    controlBar.style.opacity = '0';
-                }, 3000);
-            }
-        });
-        
-        videoContainer.addEventListener('mouseleave', () => {
-            if (!videoPlayer.paused && !isUserInteracting) {
-                const controlBar = document.querySelector('.control-bar');
-                controlBar.style.opacity = '0';
-            }
-        });
-        
-        // Evita que os controles se escondam durante interação
-        const controls = document.querySelector('.control-bar');
-        controls.addEventListener('mouseenter', () => {
-            isUserInteracting = true;
-        });
-        
-        controls.addEventListener('mouseleave', () => {
-            isUserInteracting = false;
-            if (!videoPlayer.paused) {
-                hideControlsTimeout = setTimeout(() => {
-                    controls.style.opacity = '0';
-                }, 3000);
-            }
-        });
-    }
-    
-    // Configuração de Drag and Drop para upload de vídeos
-    function setupDragAndDrop() {
-        // Evento de clique no botão de upload
-        fileUpload.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                uploadVideo(file);
-            }
-        });
-        
-        // Drag and drop
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, preventDefaults, false);
-        });
-        
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
+        // Play/Pause (com verificação)
+        if (playPauseBtn) {
+            playPauseBtn.addEventListener('click', togglePlayPause);
         }
         
-        // Highlight drop area quando o arquivo é arrastado sobre ela
-        ['dragenter', 'dragover'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, () => {
-                uploadArea.classList.add('bg-gray-200', 'dark:bg-gray-700');
-            }, false);
-        });
+        // Mute/Unmute (com verificação)
+        if (muteBtn) {
+            muteBtn.addEventListener('click', toggleMute);
+        }
         
-        ['dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, () => {
-                uploadArea.classList.remove('bg-gray-200', 'dark:bg-gray-700');
-            }, false);
-        });
+        // Volume (com verificação)
+        if (volumeSlider) {
+            volumeSlider.addEventListener('input', () => {
+                if (videoPlayer) {
+                    videoPlayer.volume = volumeSlider.value;
+                    updateVolumeIcon();
+                }
+            });
+        }
         
-        // Manipula o drop
-        uploadArea.addEventListener('drop', (e) => {
-            const file = e.dataTransfer.files[0];
-            if (file) {
-                uploadVideo(file);
+        // Fullscreen (com verificação)
+        if (fullscreenBtn) {
+            fullscreenBtn.addEventListener('click', toggleFullscreen);
+        }
+        
+        // Progresso do vídeo (com verificação)
+        if (progressBar) {
+            progressBar.addEventListener('input', () => {
+                if (videoPlayer) {
+                    const seekTime = (progressBar.value / 100) * videoPlayer.duration;
+                    videoPlayer.currentTime = seekTime;
+                }
+            });
+        }
+        
+        // Abrir/fechar painel de configurações
+        if (settingsBtn && settingsPanel) {
+            settingsBtn.addEventListener('click', () => {
+                settingsPanel.classList.toggle('visible');
+            });
+        }
+        
+        if (closeSettingsBtn && settingsPanel) {
+            closeSettingsBtn.addEventListener('click', () => {
+                settingsPanel.classList.remove('visible');
+            });
+        }
+        
+        // Aplicar configurações
+        const applySettingsBtn = document.getElementById('apply-settings');
+        if (applySettingsBtn) {
+            applySettingsBtn.addEventListener('click', applySettings);
+        }
+        
+        // Atualizações ao vivo dos valores com verificações
+        const intensitySlider = document.getElementById('intensity-slider');
+        const intensityValue = document.getElementById('intensity-value');
+        if (intensitySlider && intensityValue) {
+            intensitySlider.addEventListener('input', function() {
+                intensityValue.textContent = this.value;
+            });
+        }
+        
+        const blurSlider = document.getElementById('blur-slider');
+        const blurValue = document.getElementById('blur-value');
+        if (blurSlider && blurValue) {
+            blurSlider.addEventListener('input', function() {
+                blurValue.textContent = this.value;
+            });
+        }
+        
+        // Auto-hide dos controles (com verificação)
+        if (videoContainer) {
+            const controlBar = document.querySelector('.control-bar');
+            if (controlBar) {
+                videoContainer.addEventListener('mousemove', () => {
+                    controlBar.style.opacity = '1';
+                    clearTimeout(hideControlsTimeout);
+                    
+                    if (videoPlayer && !videoPlayer.paused && !isUserInteracting) {
+                        hideControlsTimeout = setTimeout(() => {
+                            controlBar.style.opacity = '0';
+                        }, 3000);
+                    }
+                });
+                
+                videoContainer.addEventListener('mouseleave', () => {
+                    if (videoPlayer && !videoPlayer.paused && !isUserInteracting) {
+                        controlBar.style.opacity = '0';
+                    }
+                });
+                
+                // Evita que os controles se escondam durante interação
+                controlBar.addEventListener('mouseenter', () => {
+                    isUserInteracting = true;
+                });
+                
+                controlBar.addEventListener('mouseleave', () => {
+                    isUserInteracting = false;
+                    if (videoPlayer && !videoPlayer.paused) {
+                        hideControlsTimeout = setTimeout(() => {
+                            controlBar.style.opacity = '0';
+                        }, 3000);
+                    }
+                });
             }
-        }, false);
+        }
+    }
+    
+    // Aplicar configurações ao efeito Ambilight
+    function applySettings() {
+        const intensitySlider = document.getElementById('intensity-slider');
+        const zonesSelect = document.getElementById('zones-select');
+        const blurSlider = document.getElementById('blur-slider');
+        
+        const settings = {
+            intensity: intensitySlider ? parseFloat(intensitySlider.value) / 100 : 1.0,
+            zones_per_side: zonesSelect ? parseInt(zonesSelect.value) : 10,
+            blur_amount: blurSlider ? parseInt(blurSlider.value) : 15
+        };
+        
+        console.log("Aplicando configurações:", settings);
+        
+        // Enviar configurações para o servidor via WebSocket
+        if (typeof window.updateServerSettings === 'function') {
+            window.updateServerSettings(settings);
+        }
+        
+        // Atualizar API Ambilight se disponível
+        if (window.ambilightAPI) {
+            window.ambilightAPI.setIntensity(settings.intensity);
+            window.ambilightAPI.setZones(settings.zones_per_side);
+            window.ambilightAPI.setBlur(settings.blur_amount);
+            window.ambilightAPI.refreshEffect();
+        }
+        
+        // Salvar configurações no servidor
+        fetch('/api/settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(settings)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Configurações salvas com sucesso', 'success');
+            } else {
+                showNotification(`Erro ao salvar configurações: ${data.error}`, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao salvar configurações:', error);
+            showNotification('Erro ao salvar configurações', 'error');
+        });
     }
     
     // Funções de controle do player
     function togglePlayPause() {
+        if (!videoPlayer) return;
+        
         if (videoPlayer.paused) {
             videoPlayer.play()
                 .then(() => {
@@ -314,36 +318,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updatePlayPauseButton(isPlaying) {
-        const icon = playPauseBtn.querySelector('i');
-        const overlayIcon = playButton.querySelector('i');
+        // Verificar elementos antes de tentar atualizá-los
+        const playPauseIcon = playPauseBtn ? playPauseBtn.querySelector('i') : null;
+        const overlayIcon = playButton ? playButton.querySelector('i') : null;
         
-        if (isPlaying) {
-            icon.classList.remove('fa-play');
-            icon.classList.add('fa-pause');
-            overlayIcon.classList.remove('fa-play');
-            overlayIcon.classList.add('fa-pause');
-            playButton.style.opacity = '0';
-        } else {
-            icon.classList.remove('fa-pause');
-            icon.classList.add('fa-play');
-            overlayIcon.classList.remove('fa-pause');
-            overlayIcon.classList.add('fa-play');
-            playButton.style.opacity = '1';
+        if (playPauseIcon) {
+            if (isPlaying) {
+                playPauseIcon.className = 'fas fa-pause';
+            } else {
+                playPauseIcon.className = 'fas fa-play';
+            }
+        }
+        
+        if (overlayIcon) {
+            if (isPlaying) {
+                overlayIcon.className = 'fas fa-pause';
+                playButton.style.opacity = '0';
+            } else {
+                overlayIcon.className = 'fas fa-play';
+                playButton.style.opacity = '1';
+            }
         }
     }
     
     function toggleMute() {
+        if (!videoPlayer) return;
+        
         videoPlayer.muted = !videoPlayer.muted;
         updateVolumeIcon();
     }
     
     function updateVolumeIcon() {
+        if (!muteBtn || !videoPlayer) return;
+        
         const icon = muteBtn.querySelector('i');
+        if (!icon) return;
+        
         icon.className = ''; // Remove todas as classes
         
         if (videoPlayer.muted || videoPlayer.volume === 0) {
             icon.classList.add('fas', 'fa-volume-mute');
-            volumeSlider.value = 0;
+            if (volumeSlider) volumeSlider.value = 0;
         } else if (videoPlayer.volume < 0.5) {
             icon.classList.add('fas', 'fa-volume-down');
         } else {
@@ -352,6 +367,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function toggleFullscreen() {
+        if (!videoContainer) return;
+        
         if (!document.fullscreenElement) {
             videoContainer.requestFullscreen().catch(err => {
                 showNotification(`Erro ao entrar em tela cheia: ${err.message}`, 'error');
@@ -362,6 +379,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateProgress() {
+        if (!videoPlayer || !progressBar || !progressIndicator) return;
+        
         if (!progressBar.getAttribute('max')) {
             progressBar.setAttribute('max', '100');
         }
@@ -371,10 +390,14 @@ document.addEventListener('DOMContentLoaded', () => {
         progressIndicator.style.width = `${percentage}%`;
         
         // Atualiza o tempo atual
-        currentTimeDisplay.textContent = formatTime(videoPlayer.currentTime);
+        if (currentTimeDisplay) {
+            currentTimeDisplay.textContent = formatTime(videoPlayer.currentTime);
+        }
     }
     
     function updateBuffer() {
+        if (!videoPlayer || !bufferedBar) return;
+        
         if (videoPlayer.buffered.length > 0) {
             const bufferedEnd = videoPlayer.buffered.end(videoPlayer.buffered.length - 1);
             const duration = videoPlayer.duration;
@@ -385,106 +408,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateDuration() {
+        if (!videoPlayer || !durationDisplay) return;
+        
         durationDisplay.textContent = formatTime(videoPlayer.duration);
-    }
-    
-    // Upload de vídeo
-    function uploadVideo(file) {
-        // Verifica se o arquivo é um vídeo
-        const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska', 'video/avi'];
-        if (!allowedTypes.includes(file.type)) {
-            showNotification('Formato de arquivo não suportado', 'error');
-            return;
-        }
-        
-        // Prepara o upload
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        // Exibe a barra de progresso
-        uploadContent.style.display = 'none';
-        uploadProgress.style.display = 'block';
-        
-        // Realiza o upload
-        const xhr = new XMLHttpRequest();
-        
-        xhr.upload.addEventListener('progress', (e) => {
-            if (e.lengthComputable) {
-                const percentComplete = (e.loaded / e.total) * 100;
-                progressBarUpload.style.width = percentComplete + '%';
-                progressText.textContent = Math.round(percentComplete) + '%';
-            }
-        });
-        
-        xhr.addEventListener('load', () => {
-            if (xhr.status === 200) {
-                const response = JSON.parse(xhr.responseText);
-                
-                if (response.success) {
-                    showNotification('Upload concluído com sucesso', 'success');
-                    loadVideo(response.path);
-                    
-                    // Atualiza o histórico
-                    loadHistory();
-                } else {
-                    showNotification(`Erro no upload: ${response.error}`, 'error');
-                }
-            } else {
-                showNotification('Erro no upload do arquivo', 'error');
-            }
-            
-            // Reseta a área de upload
-            resetUploadArea();
-        });
-        
-        xhr.addEventListener('error', () => {
-            showNotification('Erro na conexão durante o upload', 'error');
-            resetUploadArea();
-        });
-        
-        xhr.addEventListener('abort', () => {
-            showNotification('Upload cancelado', 'info');
-            resetUploadArea();
-        });
-        
-        xhr.open('POST', '/api/upload', true);
-        xhr.send(formData);
-    }
-    
-    function resetUploadArea() {
-        uploadContent.style.display = 'block';
-        uploadProgress.style.display = 'none';
-        progressBarUpload.style.width = '0%';
-        progressText.textContent = '0%';
-        fileUpload.value = '';
-    }
-    
-    // Carregar vídeo no player
-    function loadVideo(path) {
-        // Para qualquer processamento atual
-        socketConnection.emit('stop_video_processing');
-        
-        // Atualiza a fonte do vídeo
-        videoPlayer.innerHTML = `<source src="${path}" type="video/mp4">`;
-        videoPlayer.setAttribute('data-path', path);
-        videoPlayer.load();
-        
-        // Inicia o processamento Ambilight quando o vídeo estiver pronto
-        videoPlayer.addEventListener('loadeddata', () => {
-            if (isAmbilightActive) {
-                socketConnection.emit('start_video_processing', { video_path: path });
-            }
-        }, { once: true });
-        
-        // Reseta os controles
-        progressBar.value = 0;
-        progressIndicator.style.width = '0%';
-        bufferedBar.style.width = '0%';
-        currentTimeDisplay.textContent = '0:00';
-        durationDisplay.textContent = '0:00';
-        
-        // Mostra o container de vídeo
-        videoContainer.style.display = 'block';
     }
     
     // Funções utilitárias
@@ -497,9 +423,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sistema de notificações
     window.showNotification = function(message, type = 'info') {
         const notifications = document.getElementById('notifications');
-        const notification = document.createElement('div');
+        if (!notifications) return;
         
-        notification.className = 'notification p-3 rounded-lg shadow-lg flex items-center mb-2 text-white';
+        const notification = document.createElement('div');
+        notification.className = 'notification p-3 rounded-lg shadow-lg flex items-center mb-2 text-white transition-opacity duration-300';
         
         // Define a cor baseada no tipo
         switch (type) {
@@ -558,5 +485,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 notification.remove();
             }, 300);
         });
-    }
+    };
+    
+    // Debug info
+    console.log("Player inicializado:", {
+        videoContainer: !!videoContainer,
+        videoPlayer: !!videoPlayer,
+        progressBar: !!progressBar,
+        controlBar: !!document.querySelector('.control-bar')
+    });
 });

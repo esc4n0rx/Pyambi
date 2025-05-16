@@ -1,0 +1,290 @@
+/* 
+ * player.css
+ * Estilos específicos para o player com efeito Ambilight refinado
+ */
+
+body {
+    background-color: #000000 !important;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.player-container {
+    position: relative;
+    width: 85vw;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Estilo do container de vídeo */
+#video-container {
+    position: relative !important;
+    overflow: visible !important;
+    z-index: 10;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.7);
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background-color: #000;
+    transition: transform 0.3s ease;
+}
+
+#video-container:hover {
+    transform: scale(1.01);
+}
+
+/* Estilo para o player de vídeo */
+#video-player {
+    border-radius: 8px;
+    background-color: #000;
+}
+
+/* Barra de controles */
+.control-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+    padding: 1rem;
+    border-radius: 0 0 8px 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+#video-container:hover .control-bar,
+.control-bar:focus-within {
+    opacity: 1;
+}
+
+/* Efeito Ambilight */
+#ambilight-effect {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+    overflow: visible !important;
+    border-radius: 8px !important;
+}
+
+/* Contêineres das zonas Ambilight */
+.ambilight-container {
+    position: absolute;
+    overflow: visible !important;
+}
+
+/* Zonas Ambilight */
+.ambilight-zone {
+    position: absolute;
+    overflow: visible !important;
+    background-color: transparent !important;
+    z-index: 0 !important;
+}
+
+/* Correções específicas para cada lado */
+.ambilight-container.top {
+    top: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+}
+
+.ambilight-container.right {
+    top: 0;
+    right: -2px;
+    bottom: 0;
+    width: 2px;
+}
+
+.ambilight-container.bottom {
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+}
+
+.ambilight-container.left {
+    top: 0;
+    left: -2px;
+    bottom: 0;
+    width: 2px;
+}
+
+/* Controles de vídeo */
+.video-control {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    backdrop-filter: blur(5px);
+    transition: all 0.2s ease;
+}
+
+.video-control:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    transform: scale(1.1);
+}
+
+/* Botão play central */
+#play-button {
+    width: 70px;
+    height: 70px;
+    background-color: rgba(99, 102, 241, 0.6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+#video-container:hover #play-button {
+    opacity: 1 !important;
+}
+
+#play-button:hover {
+    transform: scale(1.1);
+    background-color: rgba(99, 102, 241, 0.8);
+}
+
+/* Barra de progresso */
+.slider {
+    height: 5px;
+    width: 100%;
+    cursor: pointer;
+    appearance: none;
+    border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.2);
+    transition: height 0.2s ease;
+}
+
+.slider:hover {
+    height: 7px;
+}
+
+.slider::-webkit-slider-thumb {
+    height: 12px;
+    width: 12px;
+    appearance: none;
+    border-radius: 50%;
+    background-color: rgb(99, 102, 241);
+    transition: transform 0.2s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.slider::-moz-range-thumb {
+    height: 12px;
+    width: 12px;
+    border-radius: 50%;
+    border: none;
+    background-color: rgb(99, 102, 241);
+    transition: transform 0.2s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* Barra de progresso e buffer */
+#progress-indicator {
+    height: 5px;
+    background-color: rgb(99, 102, 241);
+    border-radius: 5px;
+    pointer-events: none;
+    transition: height 0.2s ease;
+}
+
+#buffered-bar {
+    height: 5px;
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 5px;
+    pointer-events: none;
+    transition: height 0.2s ease;
+}
+
+/* Quando a barra de progresso tiver hover */
+.slider:hover ~ #progress-indicator,
+.slider:hover ~ #buffered-bar {
+    height: 7px;
+}
+
+/* Painel de configurações */
+#settings-panel {
+    transform: translateX(100%);
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 300px;
+    background-color: rgba(17, 24, 39, 0.95);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: -5px 0 20px rgba(0, 0, 0, 0.5);
+    transition: transform 0.3s ease;
+    z-index: 40;
+}
+
+#settings-panel.visible {
+    transform: translateX(0);
+}
+
+/* Animação de pulsação para o efeito Ambilight quando em pausa */
+@keyframes subtle-pulse {
+    0%, 100% { opacity: 0.85; }
+    50% { opacity: 1; }
+}
+
+.pulse-animation {
+    animation: subtle-pulse 2s ease-in-out infinite;
+}
+
+/* Notificações */
+.notification {
+    transition: all 0.3s ease;
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.notification.hiding {
+    transform: translateY(-20px);
+    opacity: 0;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .player-container {
+        width: 95vw;
+    }
+    
+    .video-control {
+        width: 35px;
+        height: 35px;
+    }
+    
+    #settings-panel {
+        width: 250px;
+    }
+}
+
+@media (max-width: 480px) {
+    .player-container {
+        width: 100vw;
+    }
+    
+    #video-container {
+        border-radius: 0;
+    }
+    
+    .video-control {
+        width: 30px;
+        height: 30px;
+    }
+}
