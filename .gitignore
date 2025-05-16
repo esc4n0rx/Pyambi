@@ -9,6 +9,8 @@ yarn.lock
 
 # Python
 __pycache__/
+uploads/
+uploads
 *.py[cod]
 *$py.class
 *.so

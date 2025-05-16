@@ -1,38 +1,47 @@
-/* Estilos diretamente para o efeito Ambilight */
+/* 
+ * Estilos adicionais para o efeito Ambilight
+ * Estes estilos corrigem problemas de visualização e implementam o modo imersivo
+ */
+
+/* Correções para o container de vídeo e efeito Ambilight */
 #video-container {
-    position: relative;
+    position: relative !important;
     overflow: visible !important; /* Importante: permite que o efeito seja visível fora dos limites */
+    z-index: 10;
 }
 
 #ambilight-effect {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
-    pointer-events: none;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+    overflow: visible !important;
 }
 
+/* Ativa o efeito visualmente */
 .ambilight-active {
     overflow: visible !important;
 }
 
 /* Estilos para as zonas Ambilight */
-#ambilight-effect > div {
+.ambilight-container {
     position: absolute;
     overflow: visible !important;
 }
 
-#ambilight-effect > div > div {
+.ambilight-zone {
     position: absolute;
     overflow: visible !important;
-    background-color: transparent;
+    background-color: transparent !important;
+    z-index: 0 !important;
 }
 
-/* Animação de pulsação */
+/* Animação de pulsação melhorada */
 @keyframes subtle-pulse {
-    0%, 100% { opacity: 0.8; }
+    0%, 100% { opacity: 0.85; }
     50% { opacity: 1; }
 }
 
@@ -40,19 +49,128 @@
     animation: subtle-pulse 2s ease-in-out infinite;
 }
 
-/* Definições específicas de box-shadow */
-.box-shadow-top {
+/* Modo imersivo para o efeito Ambilight */
+body.immersive-mode {
+    background-color: #000000;
+    overflow: hidden;
+}
+
+body.immersive-mode .container {
+    max-width: 100% !important;
+    padding: 0 !important;
+}
+
+body.immersive-mode header,
+body.immersive-mode #upload-area,
+body.immersive-mode .lg\:col-span-1 {
+    display: none !important;
+}
+
+body.immersive-mode .lg\:col-span-3 {
+    grid-column: span 4 / span 4 !important;
+}
+
+body.immersive-mode .lg\:grid-cols-4 {
+    grid-template-columns: 1fr !important;
+}
+
+body.immersive-mode #video-container {
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    background-color: #000;
+    overflow: visible !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: immersive-enter 0.5s ease-out forwards;
+}
+
+body.immersive-mode #video-player {
+    max-width: 85vw;
+    max-height: 85vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+body.immersive-mode .control-bar {
+    bottom: 20px;
+    left: 5vw;
+    right: 5vw;
+    width: 90vw;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+body.immersive-mode #video-container:hover .control-bar {
+    opacity: 1;
+}
+
+/* Animações para transição do modo imersivo */
+@keyframes immersive-enter {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes immersive-exit {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+}
+
+/* Botão de teste ambilight */
+#test-ambilight-btn {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    z-index: 9999;
+    background-color: rgba(245, 158, 11, 0.8);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+#test-ambilight-btn:hover {
+    background-color: rgba(245, 158, 11, 1);
+}
+
+/* Estilo para zonas específicas de debug */
+.debug-zone-outline .ambilight-zone {
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+/* Fix para visualização das sombras */
+.ambilight-zone.top {
     box-shadow: 0 -15px 30px rgba(255, 0, 0, 0.7);
 }
 
-.box-shadow-right {
+.ambilight-zone.right {
     box-shadow: 15px 0 30px rgba(0, 255, 0, 0.7);
 }
 
-.box-shadow-bottom {
+.ambilight-zone.bottom {
     box-shadow: 0 15px 30px rgba(0, 0, 255, 0.7);
 }
 
-.box-shadow-left {
+.ambilight-zone.left {
     box-shadow: -15px 0 30px rgba(255, 255, 0, 0.7);
 }
