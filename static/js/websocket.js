@@ -1,24 +1,26 @@
 /**
- * websocket.js - Versão corrigida
- * Gerencia a conexão WebSocket entre cliente e servidor para os dados do Ambilight
+ * websocket.js
+ * Gerencia comunicação WebSocket com o servidor para os dados de cor do Ambilight
+ * Contém correções para garantir que as cores sejam aplicadas corretamente
  */
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Variável global para a conexão WebSocket
+(function() {
+    console.log("Inicializando WebSocket para o Ambilight...");
+    
+    // Variáveis globais
     let socketConnection;
     let connectionAttempts = 0;
     const MAX_RECONNECT_ATTEMPTS = 5;
     let reconnectTimeout;
+    let autoReconnectEnabled = true;
     
     // Inicialização
     initWebSocket();
     
     /**
-     * Inicializa a conexão WebSocket com segurança
+     * Inicializa a conexão WebSocket
      */
     function initWebSocket() {
-        console.log("Inicializando conexão WebSocket...");
-        
         try {
             // Verificar se o socket.io está disponível
             if (typeof io === 'undefined') {
@@ -35,6 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 script.onerror = (e) => {
                     console.error("Falha ao carregar Socket.io:", e);
                     showNotification("Falha ao carregar Socket.io. O efeito Ambilight pode não funcionar.", "error");
+                    
+                    // Ativar modo offline com efeito de demonstração
+                    activateOfflineMode();
                 };
                 
                 document.head.appendChild(script);
@@ -47,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.error("Erro na inicialização do WebSocket:", e);
             showNotification("Erro na conexão com o servidor", "error");
+            activateOfflineMode();
         }
     }
     
@@ -64,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
             socketConnection = io(wsURL, {
                 reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
                 timeout: 10000,
-                transports: ['websocket', 'polling']  // Preferir WebSocket, mas permitir fallback
+                transports: ['websocket', 'polling']
             });
             
             // Evento: Conexão estabelecida
@@ -88,15 +94,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // Evento: Conexão fechada
             socketConnection.on('disconnect', (reason) => {
                 console.log(`WebSocket desconectado: ${reason}`);
-                showNotification('Conexão com o servidor perdida: ' + reason, 'error');
                 
-                // Tentar reconectar após um segundo se for um erro inesperado
-                if (reason === 'io server disconnect') {
-                    setTimeout(() => {
-                        if (connectionAttempts < MAX_RECONNECT_ATTEMPTS) {
-                            socketConnection.connect();
-                        }
-                    }, 1000);
+                if (reason === 'io server disconnect' || reason === 'transport close') {
+                    showNotification('Conexão com o servidor perdida: ' + reason, 'warning');
+                    
+                    // Tentar reconectar após um segundo se for um erro inesperado
+                    if (autoReconnectEnabled) {
+                        setTimeout(() => {
+                            if (connectionAttempts < MAX_RECONNECT_ATTEMPTS) {
+                                console.log("Tentando reconectar automaticamente...");
+                                socketConnection.connect();
+                            }
+                        }, 1000);
+                    }
                 }
             });
             
@@ -105,7 +115,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Erro na conexão WebSocket:', error);
                 connectionAttempts++;
                 
-                if (connectionAttempts < MAX_RECONNECT_ATTEMPTS) {
+                if (connectionAttempts === 1) {
+                    showNotification(`Problema ao conectar com o servidor. Tentando novamente...`, 'warning');
+                }
+                
+                if (autoReconnectEnabled && connectionAttempts < MAX_RECONNECT_ATTEMPTS) {
                     const delay = Math.min(1000 * Math.pow(1.5, connectionAttempts), 10000);
                     console.log(`Tentativa ${connectionAttempts}/${MAX_RECONNECT_ATTEMPTS} falhou. Tentando novamente em ${delay}ms`);
                     
@@ -113,14 +127,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     reconnectTimeout = setTimeout(() => {
                         socketConnection.connect();
                     }, delay);
-                } else {
-                    showNotification(`Erro na conexão com o servidor após ${MAX_RECONNECT_ATTEMPTS} tentativas`, 'error');
+                } else if (connectionAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                    showNotification(`Não foi possível conectar ao servidor após ${MAX_RECONNECT_ATTEMPTS} tentativas`, 'error');
+                    autoReconnectEnabled = false; // Desabilitar reconexão automática
                     
-                    // Após falhas de conexão, testar efeito Ambilight localmente
-                    console.log("Tentando ativar efeito Ambilight local após falhas de conexão...");
-                    if (window.ambilightAPI && typeof window.ambilightAPI.test === 'function') {
-                        window.ambilightAPI.test();
-                    }
+                    // Ativar modo offline
+                    activateOfflineMode();
                 }
             });
             
@@ -133,15 +145,35 @@ document.addEventListener('DOMContentLoaded', () => {
             socketConnection.on('reconnect_failed', () => {
                 console.error('Falha ao reconectar WebSocket');
                 showNotification('Não foi possível reconectar ao servidor', 'error');
+                
+                // Ativar modo offline
+                activateOfflineMode();
+            });
+            
+            // Evento: Reconexão bem-sucedida
+            socketConnection.on('reconnect', (attemptNumber) => {
+                console.log(`Reconectado ao WebSocket após ${attemptNumber} tentativas`);
+                showNotification('Conexão restabelecida com o servidor', 'success');
+                
+                // Reiniciar processamento
+                const videoPlayer = document.getElementById('video-player');
+                if (videoPlayer && videoPlayer.getAttribute('data-path')) {
+                    const videoPath = videoPlayer.getAttribute('data-path');
+                    window.startVideoProcessing(videoPath);
+                }
             });
             
             // Evento: Recebe dados de cores do servidor
             socketConnection.on('colors', (colors) => {
-                console.log('Cores recebidas:', Object.keys(colors).length > 0 ? 'Dados válidos' : 'Dados vazios');
+                // Verificar se temos dados válidos
+                const hasValidData = colors && colors.top && colors.top.length > 0;
+                console.log('Cores recebidas:', hasValidData ? 'Dados válidos' : 'Dados vazios');
                 
-                // Chama a função que atualiza o efeito Ambilight com as cores recebidas
-                if (typeof window.updateAmbilightColors === 'function') {
+                // Importante: Aplicar cores diretamente
+                if (window.updateAmbilightColors && hasValidData) {
                     window.updateAmbilightColors(colors);
+                } else if (!hasValidData) {
+                    console.warn('Recebidos dados de cores inválidos do servidor:', colors);
                 } else {
                     console.error('Função updateAmbilightColors não encontrada');
                 }
@@ -178,6 +210,88 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (e) {
             console.error("Erro ao conectar WebSocket:", e);
             showNotification("Falha na conexão com o servidor", "error");
+            activateOfflineMode();
+        }
+    }
+    
+    /**
+     * Ativa o modo offline com efeito de demonstração
+     */
+    function activateOfflineMode() {
+        console.log("Ativando modo offline com efeito de demonstração local");
+        
+        if (window.ambilightAPI && typeof window.ambilightAPI.test === 'function') {
+            // Mostrar notificação
+            showNotification('Modo offline ativado. Usando efeito Ambilight local.', 'info');
+            
+            // Testar efeito inicialmente
+            window.ambilightAPI.test();
+            
+            // Configurar simulação de cores
+            simulateColorUpdates();
+        } else {
+            console.error("API Ambilight não disponível para modo offline");
+        }
+    }
+    
+    /**
+     * Simula atualizações de cor periódicas no modo offline
+     */
+    function simulateColorUpdates() {
+        // Gerar cores aleatórias
+        const generateRandomColors = (count) => {
+            const colors = [];
+            for (let i = 0; i < count; i++) {
+                colors.push([
+                    Math.floor(Math.random() * 256),
+                    Math.floor(Math.random() * 256),
+                    Math.floor(Math.random() * 256)
+                ]);
+            }
+            return colors;
+        };
+        
+        // Obter número de zonas atual
+        const getZonesCount = () => {
+            const container = document.querySelector('.ambilight-container');
+            if (container) {
+                return container.children.length;
+            }
+            return 10; // Padrão
+        };
+        
+        // Função para gerar novas cores
+        const generateAndApplyColors = () => {
+            const zonesCount = getZonesCount();
+            const colors = {
+                top: generateRandomColors(zonesCount),
+                right: generateRandomColors(zonesCount),
+                bottom: generateRandomColors(zonesCount),
+                left: generateRandomColors(zonesCount)
+            };
+            
+            // Aplicar as cores se a função estiver disponível
+            if (window.updateAmbilightColors) {
+                window.updateAmbilightColors(colors);
+            }
+        };
+        
+        // Verificar se o vídeo está em reprodução
+        const videoPlayer = document.getElementById('video-player');
+        if (videoPlayer) {
+            // Aplicar cores iniciais
+            generateAndApplyColors();
+            
+            // Adicionar event listener para atualizar cores quando o vídeo estiver em reprodução
+            videoPlayer.addEventListener('timeupdate', () => {
+                // Atualizar cores a cada 1 segundo aproximadamente
+                if (Math.floor(videoPlayer.currentTime) % 1 === 0) {
+                    generateAndApplyColors();
+                }
+            });
+        } else {
+            // Se não tiver vídeo, apenas fazer uma simulação periódica
+            setInterval(generateAndApplyColors, 2000);
         }
     }
     
@@ -202,11 +316,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Socket não conectado. Não é possível iniciar o processamento.');
                 showNotification('Erro de conexão com o servidor', 'error');
                 
-                // Se não conseguir iniciar via WebSocket, ativa modo de demonstração local
-                if (window.ambilightAPI && typeof window.ambilightAPI.test === 'function') {
-                    console.log("Usando efeito de demonstração local");
-                    window.ambilightAPI.test();
-                }
+                // Ativar modo offline
+                activateOfflineMode();
             }
         };
         
@@ -250,7 +361,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     /**
-     * Mostra notificações com fallback
+     * Mostra notificações
+     * @param {string} message - Mensagem da notificação
+     * @param {string} type - Tipo da notificação (success, warning, error, info)
      */
     function showNotification(message, type = 'info') {
         // Tentar usar a função global se disponível
@@ -259,14 +372,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Fallback simples
+        // Logging como fallback
         console.log(`[${type.toUpperCase()}] ${message}`);
         
-        // Criar notificação visual se possível
+        // Implementar uma versão básica se necessário
         const notifications = document.getElementById('notifications');
         if (notifications) {
             const notification = document.createElement('div');
-            notification.className = `p-3 rounded-lg shadow-lg text-white mb-2 bg-${type === 'error' ? 'red' : type === 'success' ? 'green' : 'blue'}-500`;
+            notification.className = `notification p-3 rounded-lg shadow-lg text-white mb-2`;
+            
+            // Definir cor com base no tipo
+            if (type === 'success') notification.classList.add('bg-green-500');
+            else if (type === 'error') notification.classList.add('bg-red-500');
+            else if (type === 'warning') notification.classList.add('bg-yellow-500');
+            else notification.classList.add('bg-blue-500');
+            
             notification.textContent = message;
             notifications.appendChild(notification);
             
@@ -274,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // Expõe algumas funções úteis para debug
+    // Expor utilitários para debug
     window.websocketDebug = {
         status: () => socketConnection ? 
             `Conectado: ${socketConnection.connected}, ID: ${socketConnection.id}, Tentativas: ${connectionAttempts}` : 
@@ -286,12 +406,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return 'Socket não inicializado';
         },
-        testColors: () => {
-            if (window.ambilightAPI && typeof window.ambilightAPI.test === 'function') {
-                window.ambilightAPI.test();
-                return 'Teste de cores iniciado';
+        forceOffline: () => {
+            activateOfflineMode();
+            return 'Modo offline forçado ativado';
+        },
+        resetConnection: () => {
+            if (socketConnection) {
+                socketConnection.disconnect();
+                connectionAttempts = 0;
+                autoReconnectEnabled = true;
+                setTimeout(() => {
+                    connectWebSocket();
+                }, 1000);
+                return 'Conexão reiniciada';
             }
-            return 'Função de teste não disponível';
+            return 'Socket não inicializado';
         }
     };
-});
+})();

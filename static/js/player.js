@@ -1,9 +1,12 @@
 /**
- * player.js - Versão corrigida
- * Corrige os erros de elementos nulos e melhora a integração com o efeito Ambilight
+ * player.js
+ * Controlador do player de vídeo com integração ao efeito Ambilight
+ * Versão corrigida para garantir compatibilidade com o efeito Ambilight
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("Inicializando player de vídeo...");
+    
     // Elementos do player
     const videoContainer = document.getElementById('video-container');
     const videoPlayer = document.getElementById('video-player');
@@ -18,290 +21,182 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentTimeDisplay = document.getElementById('current-time');
     const durationDisplay = document.getElementById('duration');
     const volumeSlider = document.getElementById('volume-slider');
-    const settingsBtn = document.getElementById('settings-btn');
-    const settingsPanel = document.getElementById('settings-panel');
-    const closeSettingsBtn = document.getElementById('close-settings');
     
-    // Verificar elementos críticos antes de prosseguir
+    // Verificar elementos críticos
     if (!videoPlayer || !videoContainer) {
         console.error('Elementos críticos do player não encontrados!');
-        return; // Sai da função se elementos críticos não existirem
+        return;
     }
 
     // Estado do player
-    let isAmbilightActive = true;
-    let hideControlsTimeout;
     let isUserInteracting = false;
+    let hideControlsTimeout;
     
     // Inicialização
     initPlayer();
     
-    // Funções de inicialização
+    /**
+     * Inicializa o player de vídeo
+     */
     function initPlayer() {
         console.log("Inicializando player de vídeo...");
         
-        // Carregar configurações com verificação de elementos
-        loadSettings();
-        
-        // Adicionar event listeners apenas se os elementos existirem
+        // Adicionar event listeners
         addVideoEventListeners();
         addControlEventListeners();
         
-        // Iniciar o processamento Ambilight se o vídeo tiver um caminho definido
-        if (videoPlayer && videoPlayer.getAttribute('data-path')) {
-            // Delay para garantir que o WebSocket esteja conectado
-            setTimeout(() => {
-                if (typeof window.startVideoProcessing === 'function') {
-                    window.startVideoProcessing(videoPlayer.getAttribute('data-path'));
-                    console.log("Iniciando processamento Ambilight para:", videoPlayer.getAttribute('data-path'));
-                } else {
-                    console.error("Função startVideoProcessing não disponível");
-                }
-            }, 1000);
-        }
+        // Carregar configurações de autoplay
+        loadAutoplaySetting();
+        
+        console.log("Player de vídeo inicializado");
     }
     
-    // Carrega as configurações com segurança
-    function loadSettings() {
-        try {
-            fetch('/api/settings')
-                .then(response => response.json())
-                .then(settings => {
-                    // Aplicar configurações com verificações de null
-                    const intensitySlider = document.getElementById('intensity-slider');
-                    const intensityValue = document.getElementById('intensity-value');
-                    const zonesSelect = document.getElementById('zones-select');
-                    const blurSlider = document.getElementById('blur-slider');
-                    const blurValue = document.getElementById('blur-value');
-                    
-                    if (intensitySlider) intensitySlider.value = settings.intensity * 100;
-                    if (intensityValue) intensityValue.textContent = Math.round(settings.intensity * 100);
-                    if (zonesSelect) zonesSelect.value = settings.zones_per_side;
-                    if (blurSlider) blurSlider.value = settings.blur_amount;
-                    if (blurValue) blurValue.textContent = settings.blur_amount;
-                    
-                    console.log("Configurações carregadas com sucesso");
-                })
-                .catch(error => {
-                    console.error('Erro ao carregar configurações:', error);
-                    showNotification('Erro ao carregar configurações', 'error');
-                });
-        } catch (e) {
-            console.error("Erro ao carregar configurações:", e);
-        }
-    }
-    
-    // Event listeners para o player de vídeo
-    function addVideoEventListeners() {
-        if (!videoPlayer) return;
-        
-        // Play/Pause no vídeo (com verificação de overlay)
-        if (videoOverlay) {
-            videoOverlay.addEventListener('click', togglePlayPause);
-        }
-        
-        // Atualiza a barra de progresso enquanto o vídeo é reproduzido
-        videoPlayer.addEventListener('timeupdate', updateProgress);
-        
-        // Atualiza o buffer
-        videoPlayer.addEventListener('progress', updateBuffer);
-        
-        // Quando o vídeo está pronto
-        videoPlayer.addEventListener('loadedmetadata', () => {
-            updateDuration();
-            
-            // Auto-play se configurado
-            fetch('/api/settings')
-                .then(response => response.json())
-                .then(settings => {
-                    if (settings.autoplay) {
+    /**
+     * Carrega configuração de autoplay
+     */
+    function loadAutoplaySetting() {
+        fetch('/api/settings')
+            .then(response => response.json())
+            .then(settings => {
+                if (settings.autoplay && videoPlayer) {
+                    // Tentar autoplay quando o vídeo estiver pronto
+                    videoPlayer.addEventListener('loadedmetadata', () => {
                         videoPlayer.play()
                             .then(() => {
                                 updatePlayPauseButton(true);
                             })
                             .catch(error => {
                                 console.error('Autoplay falhou:', error);
+                                showNotification('Autoplay bloqueado pelo navegador. Clique para reproduzir.', 'info');
                             });
-                    }
-                });
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao carregar configurações:', error);
+            });
+    }
+    
+    /**
+     * Adiciona event listeners ao vídeo
+     */
+    function addVideoEventListeners() {
+        // Play/Pause no clique
+        if (videoOverlay) {
+            videoOverlay.addEventListener('click', togglePlayPause);
+        }
+        
+        // Atualiza a barra de progresso
+        videoPlayer.addEventListener('timeupdate', updateProgress);
+        
+        // Atualiza o buffer
+        videoPlayer.addEventListener('progress', updateBuffer);
+        
+        // Metadados carregados
+        videoPlayer.addEventListener('loadedmetadata', () => {
+            updateDuration();
         });
         
-        // Quando o vídeo termina
+        // Vídeo terminou
         videoPlayer.addEventListener('ended', () => {
             videoPlayer.currentTime = 0;
             updatePlayPauseButton(false);
         });
         
-        // Quando ocorre um erro no vídeo
-        videoPlayer.addEventListener('error', () => {
+        // Erro no vídeo
+        videoPlayer.addEventListener('error', (e) => {
+            console.error('Erro no vídeo:', e);
             showNotification('Erro ao reproduzir o vídeo', 'error');
         });
     }
     
-    // Event listeners para os controles do player, com verificações
+    /**
+     * Adiciona event listeners aos controles
+     */
     function addControlEventListeners() {
-        // Play/Pause (com verificação)
+        // Play/Pause
         if (playPauseBtn) {
             playPauseBtn.addEventListener('click', togglePlayPause);
         }
         
-        // Mute/Unmute (com verificação)
+        // Mute/Unmute
         if (muteBtn) {
             muteBtn.addEventListener('click', toggleMute);
         }
         
-        // Volume (com verificação)
+        // Volume
         if (volumeSlider) {
             volumeSlider.addEventListener('input', () => {
-                if (videoPlayer) {
-                    videoPlayer.volume = volumeSlider.value;
-                    updateVolumeIcon();
-                }
+                videoPlayer.volume = volumeSlider.value;
+                updateVolumeIcon();
             });
         }
         
-        // Fullscreen (com verificação)
+        // Fullscreen
         if (fullscreenBtn) {
             fullscreenBtn.addEventListener('click', toggleFullscreen);
         }
         
-        // Progresso do vídeo (com verificação)
+        // Barra de progresso
         if (progressBar) {
+            // Atualizar a posição no clique
             progressBar.addEventListener('input', () => {
-                if (videoPlayer) {
-                    const seekTime = (progressBar.value / 100) * videoPlayer.duration;
-                    videoPlayer.currentTime = seekTime;
-                }
+                const seekTime = (progressBar.value / 100) * videoPlayer.duration;
+                videoPlayer.currentTime = seekTime;
             });
         }
         
-        // Abrir/fechar painel de configurações
-        if (settingsBtn && settingsPanel) {
-            settingsBtn.addEventListener('click', () => {
-                settingsPanel.classList.toggle('visible');
-            });
-        }
-        
-        if (closeSettingsBtn && settingsPanel) {
-            closeSettingsBtn.addEventListener('click', () => {
-                settingsPanel.classList.remove('visible');
-            });
-        }
-        
-        // Aplicar configurações
-        const applySettingsBtn = document.getElementById('apply-settings');
-        if (applySettingsBtn) {
-            applySettingsBtn.addEventListener('click', applySettings);
-        }
-        
-        // Atualizações ao vivo dos valores com verificações
-        const intensitySlider = document.getElementById('intensity-slider');
-        const intensityValue = document.getElementById('intensity-value');
-        if (intensitySlider && intensityValue) {
-            intensitySlider.addEventListener('input', function() {
-                intensityValue.textContent = this.value;
-            });
-        }
-        
-        const blurSlider = document.getElementById('blur-slider');
-        const blurValue = document.getElementById('blur-value');
-        if (blurSlider && blurValue) {
-            blurSlider.addEventListener('input', function() {
-                blurValue.textContent = this.value;
-            });
-        }
-        
-        // Auto-hide dos controles (com verificação)
-        if (videoContainer) {
-            const controlBar = document.querySelector('.control-bar');
-            if (controlBar) {
-                videoContainer.addEventListener('mousemove', () => {
-                    controlBar.style.opacity = '1';
-                    clearTimeout(hideControlsTimeout);
-                    
-                    if (videoPlayer && !videoPlayer.paused && !isUserInteracting) {
-                        hideControlsTimeout = setTimeout(() => {
-                            controlBar.style.opacity = '0';
-                        }, 3000);
-                    }
-                });
-                
-                videoContainer.addEventListener('mouseleave', () => {
-                    if (videoPlayer && !videoPlayer.paused && !isUserInteracting) {
-                        controlBar.style.opacity = '0';
-                    }
-                });
-                
-                // Evita que os controles se escondam durante interação
-                controlBar.addEventListener('mouseenter', () => {
-                    isUserInteracting = true;
-                });
-                
-                controlBar.addEventListener('mouseleave', () => {
-                    isUserInteracting = false;
-                    if (videoPlayer && !videoPlayer.paused) {
-                        hideControlsTimeout = setTimeout(() => {
-                            controlBar.style.opacity = '0';
-                        }, 3000);
-                    }
-                });
-            }
-        }
+        // Auto-hide dos controles
+        setupControlsVisibility();
     }
     
-    // Aplicar configurações ao efeito Ambilight
-    function applySettings() {
-        const intensitySlider = document.getElementById('intensity-slider');
-        const zonesSelect = document.getElementById('zones-select');
-        const blurSlider = document.getElementById('blur-slider');
+    /**
+     * Configurar visibilidade automática dos controles
+     */
+    function setupControlsVisibility() {
+        const controlBar = document.querySelector('.control-bar');
+        if (!controlBar || !videoContainer) return;
         
-        const settings = {
-            intensity: intensitySlider ? parseFloat(intensitySlider.value) / 100 : 1.0,
-            zones_per_side: zonesSelect ? parseInt(zonesSelect.value) : 10,
-            blur_amount: blurSlider ? parseInt(blurSlider.value) : 15
-        };
-        
-        console.log("Aplicando configurações:", settings);
-        
-        // Enviar configurações para o servidor via WebSocket
-        if (typeof window.updateServerSettings === 'function') {
-            window.updateServerSettings(settings);
-        }
-        
-        // Atualizar API Ambilight se disponível
-        if (window.ambilightAPI) {
-            window.ambilightAPI.setIntensity(settings.intensity);
-            window.ambilightAPI.setZones(settings.zones_per_side);
-            window.ambilightAPI.setBlur(settings.blur_amount);
-            window.ambilightAPI.refreshEffect();
-        }
-        
-        // Salvar configurações no servidor
-        fetch('/api/settings', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(settings)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification('Configurações salvas com sucesso', 'success');
-            } else {
-                showNotification(`Erro ao salvar configurações: ${data.error}`, 'error');
+        // Mostrar controles no mousemove
+        videoContainer.addEventListener('mousemove', () => {
+            controlBar.style.opacity = '1';
+            clearTimeout(hideControlsTimeout);
+            
+            // Esconder após 3 segundos se não estiver pausado e não estiver interagindo
+            if (!videoPlayer.paused && !isUserInteracting) {
+                hideControlsTimeout = setTimeout(() => {
+                    controlBar.style.opacity = '0';
+                }, 3000);
             }
-        })
-        .catch(error => {
-            console.error('Erro ao salvar configurações:', error);
-            showNotification('Erro ao salvar configurações', 'error');
+        });
+        
+        // Esconder quando o cursor sair do container
+        videoContainer.addEventListener('mouseleave', () => {
+            if (!videoPlayer.paused && !isUserInteracting) {
+                controlBar.style.opacity = '0';
+            }
+        });
+        
+        // Quando interagir com os controles, não esconder
+        controlBar.addEventListener('mouseenter', () => {
+            isUserInteracting = true;
+            clearTimeout(hideControlsTimeout);
+        });
+        
+        controlBar.addEventListener('mouseleave', () => {
+            isUserInteracting = false;
+            if (!videoPlayer.paused) {
+                hideControlsTimeout = setTimeout(() => {
+                    controlBar.style.opacity = '0';
+                }, 3000);
+            }
         });
     }
     
-    // Funções de controle do player
+    /**
+     * Alterna entre reproduzir e pausar o vídeo
+     */
     function togglePlayPause() {
-        if (!videoPlayer) return;
-        
         if (videoPlayer.paused) {
             videoPlayer.play()
                 .then(() => {
@@ -317,44 +212,58 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    /**
+     * Atualiza o botão de play/pause
+     * @param {boolean} isPlaying - Indica se o vídeo está sendo reproduzido
+     */
     function updatePlayPauseButton(isPlaying) {
-        // Verificar elementos antes de tentar atualizá-los
+        // Atualizar ícone do botão de play/pause
         const playPauseIcon = playPauseBtn ? playPauseBtn.querySelector('i') : null;
-        const overlayIcon = playButton ? playButton.querySelector('i') : null;
-        
         if (playPauseIcon) {
-            if (isPlaying) {
-                playPauseIcon.className = 'fas fa-pause';
-            } else {
-                playPauseIcon.className = 'fas fa-play';
-            }
+            playPauseIcon.className = isPlaying ? 'fas fa-pause' : 'fas fa-play';
         }
         
+        // Atualizar ícone do overlay central
+        const overlayIcon = playButton ? playButton.querySelector('i') : null;
         if (overlayIcon) {
-            if (isPlaying) {
-                overlayIcon.className = 'fas fa-pause';
-                playButton.style.opacity = '0';
-            } else {
-                overlayIcon.className = 'fas fa-play';
-                playButton.style.opacity = '1';
+            overlayIcon.className = isPlaying ? 'fas fa-pause' : 'fas fa-play';
+        }
+        
+        // Mostrar/esconder o botão central
+        if (playButton) {
+            playButton.style.opacity = isPlaying ? '0' : '1';
+        }
+        
+        // Atualizar efeito Ambilight
+        if (isPlaying) {
+            if (document.getElementById('ambilight-effect')) {
+                document.getElementById('ambilight-effect').classList.remove('pulse-animation');
+            }
+        } else {
+            if (document.getElementById('ambilight-effect')) {
+                document.getElementById('ambilight-effect').classList.add('pulse-animation');
             }
         }
     }
     
+    /**
+     * Alterna mudo/som no vídeo
+     */
     function toggleMute() {
-        if (!videoPlayer) return;
-        
         videoPlayer.muted = !videoPlayer.muted;
         updateVolumeIcon();
     }
     
+    /**
+     * Atualiza o ícone de volume
+     */
     function updateVolumeIcon() {
-        if (!muteBtn || !videoPlayer) return;
+        if (!muteBtn) return;
         
         const icon = muteBtn.querySelector('i');
         if (!icon) return;
         
-        icon.className = ''; // Remove todas as classes
+        icon.className = '';
         
         if (videoPlayer.muted || videoPlayer.volume === 0) {
             icon.classList.add('fas', 'fa-volume-mute');
@@ -366,9 +275,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    /**
+     * Alterna tela cheia
+     */
     function toggleFullscreen() {
-        if (!videoContainer) return;
-        
         if (!document.fullscreenElement) {
             videoContainer.requestFullscreen().catch(err => {
                 showNotification(`Erro ao entrar em tela cheia: ${err.message}`, 'error');
@@ -378,52 +288,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    /**
+     * Atualiza a barra de progresso
+     */
     function updateProgress() {
-        if (!videoPlayer || !progressBar || !progressIndicator) return;
-        
-        if (!progressBar.getAttribute('max')) {
-            progressBar.setAttribute('max', '100');
-        }
+        if (!videoPlayer.duration) return;
         
         const percentage = (videoPlayer.currentTime / videoPlayer.duration) * 100;
-        progressBar.value = percentage;
-        progressIndicator.style.width = `${percentage}%`;
         
-        // Atualiza o tempo atual
-        if (currentTimeDisplay) {
-            currentTimeDisplay.textContent = formatTime(videoPlayer.currentTime);
-        }
+        if (progressBar) progressBar.value = percentage;
+        if (progressIndicator) progressIndicator.style.width = `${percentage}%`;
+        if (currentTimeDisplay) currentTimeDisplay.textContent = formatTime(videoPlayer.currentTime);
     }
     
+    /**
+     * Atualiza a barra de buffer
+     */
     function updateBuffer() {
-        if (!videoPlayer || !bufferedBar) return;
+        if (!videoPlayer.buffered.length || !bufferedBar) return;
         
-        if (videoPlayer.buffered.length > 0) {
-            const bufferedEnd = videoPlayer.buffered.end(videoPlayer.buffered.length - 1);
-            const duration = videoPlayer.duration;
+        const bufferedEnd = videoPlayer.buffered.end(videoPlayer.buffered.length - 1);
+        const duration = videoPlayer.duration;
+        if (duration > 0) {
             const bufferedPercentage = (bufferedEnd / duration) * 100;
-            
             bufferedBar.style.width = `${bufferedPercentage}%`;
         }
     }
     
+    /**
+     * Atualiza o display de duração
+     */
     function updateDuration() {
-        if (!videoPlayer || !durationDisplay) return;
-        
-        durationDisplay.textContent = formatTime(videoPlayer.duration);
+        if (durationDisplay && !isNaN(videoPlayer.duration)) {
+            durationDisplay.textContent = formatTime(videoPlayer.duration);
+        }
     }
     
-    // Funções utilitárias
+    /**
+     * Formata o tempo em segundos para MM:SS
+     * @param {number} seconds - Tempo em segundos
+     * @returns {string} Tempo formatado
+     */
     function formatTime(seconds) {
+        if (isNaN(seconds)) return "0:00";
+        
         const minutes = Math.floor(seconds / 60);
         seconds = Math.floor(seconds % 60);
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     }
     
-    // Sistema de notificações
+    // Sistema de notificações global
     window.showNotification = function(message, type = 'info') {
         const notifications = document.getElementById('notifications');
-        if (!notifications) return;
+        if (!notifications) {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+            return;
+        }
         
         const notification = document.createElement('div');
         notification.className = 'notification p-3 rounded-lg shadow-lg flex items-center mb-2 text-white transition-opacity duration-300';
@@ -486,12 +406,4 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 300);
         });
     };
-    
-    // Debug info
-    console.log("Player inicializado:", {
-        videoContainer: !!videoContainer,
-        videoPlayer: !!videoPlayer,
-        progressBar: !!progressBar,
-        controlBar: !!document.querySelector('.control-bar')
-    });
 });
