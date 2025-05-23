@@ -19,6 +19,7 @@ env/
 build/
 develop-eggs/
 dist/
+temp_chunks/
 downloads/
 eggs/
 .eggs/

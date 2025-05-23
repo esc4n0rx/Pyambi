@@ -82,6 +82,74 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    /**
+ * Faz upload de um vídeo usando chunks
+ * @param {File} file - Arquivo a ser enviado
+ */
+async function uploadVideoInChunks(file) {
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB por chunk
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    const fileName = file.name;
+    const fileId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    // Exibir barra de progresso
+    uploadContent.style.display = 'none';
+    uploadProgress.style.display = 'block';
+    
+    try {
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            const start = chunkIndex * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+            
+            const formData = new FormData();
+            formData.append('chunk', chunk);
+            formData.append('fileName', fileName);
+            formData.append('fileId', fileId);
+            formData.append('chunkIndex', chunkIndex);
+            formData.append('totalChunks', totalChunks);
+            
+            const response = await fetch('/api/upload-chunk', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Erro no chunk ${chunkIndex}`);
+            }
+            
+            // Atualizar progresso
+            const progress = ((chunkIndex + 1) / totalChunks) * 100;
+            progressBarUpload.style.width = progress + '%';
+            progressText.textContent = Math.round(progress) + '%';
+        }
+        
+        // Finalizar upload
+        const finalizeResponse = await fetch('/api/finalize-upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileId, fileName })
+        });
+        
+        const result = await finalizeResponse.json();
+        
+        if (result.success) {
+            showNotification('Upload concluído com sucesso', 'success');
+            if (confirm('Deseja reproduzir o vídeo agora?')) {
+                window.location.href = `/player/${encodeURIComponent(result.filename)}`;
+            }
+        } else {
+            throw new Error(result.error);
+        }
+        
+    } catch (error) {
+        console.error('Erro no upload:', error);
+        showNotification(`Erro no upload: ${error.message}`, 'error');
+    } finally {
+        resetUploadArea();
+    }
+}
     
     /**
      * Configura a funcionalidade de pesquisa
@@ -256,12 +324,19 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {File} file - Arquivo a ser enviado
      */
     function uploadVideo(file) {
-        // Verificar se o arquivo é um vídeo
-        const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska', 'video/avi'];
+        // Verificar tamanho do arquivo
+        const maxSize = 50 * 1024 * 1024 * 1024; // 50GB limite
         
-        if (!allowedTypes.includes(file.type)) {
-            showNotification('Formato de arquivo não suportado', 'error');
+        if (file.size > maxSize) {
+            showNotification('Arquivo muito grande. Máximo: 50GB', 'error');
             return;
+        }
+        
+        if (file.size > 100 * 1024 * 1024) {
+            uploadVideoInChunks(file);
+        } else {
+            // Upload tradicional para arquivos pequenos
+            uploadVideoTraditional(file);
         }
         
         // Exibir barra de progresso

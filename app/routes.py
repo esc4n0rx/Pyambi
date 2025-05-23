@@ -2,12 +2,19 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 import os
 import json
+import re
 import cv2
 import numpy as np
 import threading
 import time
 from werkzeug.utils import secure_filename
 from datetime import datetime
+import tempfile
+import shutil
+from pathlib import Path
+from flask import Response
+import mimetypes
+
 
 from app.ambilight import AmbilightProcessor
 from app.models import DatabaseManager, Settings, History
@@ -19,11 +26,37 @@ app = Flask(__name__,
            static_folder=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static'))
 app.config['SECRET_KEY'] = 'ambilight-secret-key'
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'uploads')
-app.config['MAX_CONTENT_LENGTH'] = 1000 * 1024 * 1024  # 1000 MB max upload size
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024 * 1024  # 1000 MB max upload size
 app.config['ALLOWED_EXTENSIONS'] = {'mp4', 'mkv', 'avi', 'mov', 'webm'}
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
+
+
+def cleanup_temp_files():
+    """Remove arquivos temporários antigos."""
+    while True:
+        try:
+            if os.path.exists(TEMP_CHUNKS_DIR):
+                for item in os.listdir(TEMP_CHUNKS_DIR):
+                    item_path = os.path.join(TEMP_CHUNKS_DIR, item)
+                    if os.path.isdir(item_path):
+                        # Remove diretórios de chunks com mais de 1 hora
+                        if time.time() - os.path.getctime(item_path) > 3600:
+                            shutil.rmtree(item_path)
+        except Exception as e:
+            print(f"Erro na limpeza: {e}")
+        
+        time.sleep(1800)  # Verificar a cada 30 minutos
+
+# Iniciar thread de limpeza
+cleanup_thread = threading.Thread(target=cleanup_temp_files, daemon=True)
+cleanup_thread.start()
+
+
 
 # Certifique-se de que a pasta de uploads existe
 create_directory_if_not_exists(app.config['UPLOAD_FOLDER'])
+TEMP_CHUNKS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'temp_chunks')
+create_directory_if_not_exists(TEMP_CHUNKS_DIR)
 
 # Configuração do Socket.IO
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
@@ -227,6 +260,144 @@ def upload_file():
 def uploaded_file(filename):
     """Serve os arquivos de vídeo enviados."""
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/stream/<filename>')
+def stream_video(filename):
+    """Serve vídeos com suporte a range requests para streaming."""
+    video_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    
+    if not os.path.exists(video_path):
+        return "File not found", 404
+    
+    def generate():
+        with open(video_path, 'rb') as f:
+            data = f.read(1024 * 1024)  # Lê 1MB por vez
+            while data:
+                yield data
+                data = f.read(1024 * 1024)
+    
+    # Suporte a range requests
+    range_header = request.headers.get('Range', None)
+    if range_header:
+        byte_start = 0
+        byte_end = None
+        
+        if range_header:
+            match = re.search(r'bytes=(\d+)-(\d*)', range_header)
+            if match:
+                byte_start = int(match.group(1))
+                if match.group(2):
+                    byte_end = int(match.group(2))
+        
+        file_size = os.path.getsize(video_path)
+        if byte_end is None:
+            byte_end = file_size - 1
+        
+        content_length = byte_end - byte_start + 1
+        
+        def generate_range():
+            with open(video_path, 'rb') as f:
+                f.seek(byte_start)
+                remaining = content_length
+                while remaining:
+                    chunk_size = min(1024 * 1024, remaining)
+                    data = f.read(chunk_size)
+                    if not data:
+                        break
+                    remaining -= len(data)
+                    yield data
+        
+        response = Response(
+            generate_range(),
+            206,  # Partial Content
+            headers={
+                'Content-Range': f'bytes {byte_start}-{byte_end}/{file_size}',
+                'Accept-Ranges': 'bytes',
+                'Content-Length': str(content_length),
+                'Content-Type': mimetypes.guess_type(filename)[0] or 'video/mp4',
+            }
+        )
+        return response
+    
+    # Resposta normal sem range
+    mime_type = mimetypes.guess_type(filename)[0] or 'video/mp4'
+    return Response(generate(), mimetype=mime_type)
+
+@app.route('/api/upload-chunk', methods=['POST'])
+def upload_chunk():
+    """API para fazer upload de um chunk do arquivo."""
+    try:
+        chunk = request.files['chunk']
+        file_name = request.form['fileName']
+        file_id = request.form['fileId']
+        chunk_index = int(request.form['chunkIndex'])
+        total_chunks = int(request.form['totalChunks'])
+        
+        # Verificar se o arquivo é válido
+        if not allowed_file(file_name):
+            return jsonify({'success': False, 'error': 'Tipo de arquivo não permitido'})
+        
+        # Criar diretório para este arquivo se não existir
+        file_chunks_dir = os.path.join(TEMP_CHUNKS_DIR, file_id)
+        create_directory_if_not_exists(file_chunks_dir)
+        
+        # Salvar o chunk
+        chunk_path = os.path.join(file_chunks_dir, f'chunk_{chunk_index}')
+        chunk.save(chunk_path)
+        
+        return jsonify({
+            'success': True,
+            'chunkIndex': chunk_index,
+            'totalChunks': total_chunks
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/finalize-upload', methods=['POST'])
+def finalize_upload():
+    """API para finalizar o upload combinando todos os chunks."""
+    try:
+        data = request.json
+        file_id = data['fileId']
+        file_name = secure_filename(data['fileName'])
+        
+        file_chunks_dir = os.path.join(TEMP_CHUNKS_DIR, file_id)
+        
+        if not os.path.exists(file_chunks_dir):
+            return jsonify({'success': False, 'error': 'Chunks não encontrados'})
+        
+        # Caminho final do arquivo
+        final_path = os.path.join(app.config['UPLOAD_FOLDER'], file_name)
+        
+        # Combinar chunks
+        chunk_files = sorted(
+            [f for f in os.listdir(file_chunks_dir) if f.startswith('chunk_')],
+            key=lambda x: int(x.split('_')[1])
+        )
+        
+        with open(final_path, 'wb') as final_file:
+            for chunk_file in chunk_files:
+                chunk_path = os.path.join(file_chunks_dir, chunk_file)
+                with open(chunk_path, 'rb') as chunk:
+                    shutil.copyfileobj(chunk, final_file)
+        
+        # Limpar chunks temporários
+        shutil.rmtree(file_chunks_dir)
+        
+        # Adicionar ao histórico
+        add_to_history(file_name, final_path)
+        
+        return jsonify({
+            'success': True,
+            'filename': file_name,
+            'path': f'/uploads/{file_name}'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+    
+    
 
 # Eventos Socket.IO
 @socketio.on('connect')
